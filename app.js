@@ -36,5 +36,5 @@ function calculateDCA() {
 
 // Първоначално зареждане
 showSection('home');
-fetchBTCPrice(); // първо зареждане
+fetchBTCPrice(); 
 setInterval(fetchBTCPrice, 60000); // обновяване
