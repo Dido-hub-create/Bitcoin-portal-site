@@ -27,12 +27,29 @@ async function fetchPrice() {
         document.getElementById('price-data').innerText = "Грешка при зареждане на цената.";
     }
 }
-
 function calculateDCA() {
-    const monthly = document.getElementById('monthly').value;
-    const months = document.getElementById('months').value;
-    const total = monthly * months;
-    document.getElementById('dca-result').innerHTML = `<p>Общо инвестирани: $${total}</p>`;
+    const monthly = parseFloat(document.getElementById('monthly').value);
+    const months = parseFloat(document.getElementById('months').value);
+    const futurePrice = parseFloat(document.getElementById('future-price').value);
+
+    if (!monthly || !months || !futurePrice) {
+        document.getElementById('dca-result').innerHTML = "Моля, попълни всички полета.";
+        return;
+    }
+
+    const totalInvested = monthly * months;
+    // Опростена симулация: приемаме средна покупна цена 60,000$ (можеш да я промениш)
+    const avgPurchasePrice = 60000; 
+    const btcAccumulated = totalInvested / avgPurchasePrice;
+    const futureValue = btcAccumulated * futurePrice;
+    const profit = futureValue - totalInvested;
+
+    document.getElementById('dca-result').innerHTML = `
+        <p>Общо инвестирани: <b>$${totalInvested.toLocaleString()}</b></p>
+        <p>Натрупани BTC: <b>${btcAccumulated.toFixed(6)}</b></p>
+        <p>Прогнозна стойност: <b>$${futureValue.toLocaleString()}</b></p>
+        <p>Печалба: <b style="color: ${profit >= 0 ? '#22c55e' : '#ef4444'}">$${profit.toLocaleString()}</b></p>
+    `;
 }
 
 // Първоначално зареждане
