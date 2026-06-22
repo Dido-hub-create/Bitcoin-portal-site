@@ -1,0 +1,2961 @@
+<!DOCTYPE html>
+<html lang="bg" class="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>₿ Bitcoin DCA Tracker</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<style>
+  :root {
+    --btc-orange: #F7931A;
+    --btc-yellow: #FFD700;
+    --green-glow: #00ff88;
+    --red-glow: #ff4444;
+    --bg-primary: #0a0a0f;
+    --bg-card: #111118;
+    --bg-card2: #16161f;
+    --border: #1e1e2e;
+    --text-muted: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg-primary);
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+  .btc-gradient { background: linear-gradient(135deg, #F7931A 0%, #FFD700 100%); }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .card2 { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .price-display {
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #F7931A, #FFD700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .risk-gauge-wrap { position: relative; width: 160px; height: 90px; margin: 0 auto; }
+  .risk-gauge { width: 160px; height: 90px; }
+  .risk-label { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); text-align: center; }
+  .metric-value { font-size: 1.6rem; font-weight: 700; }
+  .green { color: #22c55e; }
+  .yellow { color: #eab308; }
+  .red { color: #ef4444; }
+  .orange { color: #F7931A; }
+  .pulse-dot { width:8px; height:8px; border-radius:50%; display:inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+  .tab-btn { padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid #2d2d3d; background: transparent; color: #9ca3af; transition: all .2s; }
+  .tab-btn.active { background: #F7931A22; color: #F7931A; border-color: #F7931A66; }
+  .tab-btn:hover:not(.active) { background: #1e1e2e; color: #e2e8f0; }
+  input, select { background: #0f0f1a; border: 1px solid #2d2d3d; border-radius: 8px; padding: 8px 12px; color: #e2e8f0; width: 100%; font-size: 0.9rem; }
+  input:focus, select:focus { outline: none; border-color: #F7931A66; box-shadow: 0 0 0 2px #F7931A22; }
+  .btn { padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; font-size: 0.85rem; transition: all .15s; }
+  .btn-primary { background: linear-gradient(135deg, #F7931A, #e8830f); color: #000; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-secondary { background: #1e1e2e; color: #e2e8f0; border: 1px solid #2d2d3d; }
+  .btn-secondary:hover { background: #2d2d3d; }
+  .btn-danger { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; }
+  .btn-danger:hover { background: #ef444433; }
+  .btn-success { background: #22c55e22; color: #22c55e; border: 1px solid #22c55e44; }
+  .btn-success:hover { background: #22c55e33; }
+  .modal-overlay { position: fixed; inset:0; background: #000000bb; z-index: 1000; display:flex; align-items:center; justify-content:center; }
+  .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; width: 90%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+  .progress-bar { height: 8px; border-radius: 4px; background: #1e1e2e; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width .5s; }
+  .tooltip-wrap { position: relative; }
+  .tooltip-wrap:hover .tooltip-text { display: block; }
+  .tooltip-text { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #1e1e2e; color: #e2e8f0; border: 1px solid #2d2d3d; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; white-space: nowrap; z-index: 50; margin-bottom: 4px; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { padding: 10px 12px; text-align: left; color: #6b7280; font-weight: 600; border-bottom: 1px solid #1e1e2e; }
+  td { padding: 10px 12px; border-bottom: 1px solid #111118; }
+  tr:hover td { background: #111118; }
+  .chart-container { position: relative; height: 220px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .kpi-box { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .tag { padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700; }
+  .tag-green { background: #22c55e22; color: #22c55e; }
+  .tag-red { background: #ef444422; color: #ef4444; }
+  .tag-yellow { background: #eab30822; color: #eab308; }
+  .tag-orange { background: #F7931A22; color: #F7931A; }
+  .section-title { font-size: 1.1rem; font-weight: 700; color: #e2e8f0; margin-bottom: 12px; display:flex; align-items:center; gap:8px; }
+  .divider { border-top: 1px solid #1e1e2e; margin: 16px 0; }
+  .slider-input { -webkit-appearance: none; height: 6px; border-radius: 3px; background: #1e1e2e; outline: none; width: 100%; padding: 0; }
+  .slider-input::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #F7931A; cursor: pointer; }
+  .nav-link { padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600; color: #9ca3af; transition: all .2s; white-space: nowrap; }
+  .submenu-item { padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 0.83rem; color: #e2e8f0; transition: background .15s; }
+  .submenu-item:hover { background: #F7931A22; color: #F7931A; }
+  .nav-link.active { background: #F7931A22; color: #F7931A; }
+  .nav-link:hover:not(.active) { color: #e2e8f0; background: #1e1e2e; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .submenu-item { padding: 7px 12px; border-radius: 7px; cursor: pointer; font-size: 0.83rem; font-weight: 600; color: #cbd5e1; transition: all .15s; }
+  .submenu-item:hover { background: #F7931A22; color: #F7931A; }
+  .chart-group { display: none; }
+  .chart-group.active { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-group.active.single { grid-template-columns: 1fr; }
+  .chart-tall { height: 280px; }
+  @media (max-width: 768px) {
+    .price-display { font-size: 1.6rem; }
+    .metric-value { font-size: 1.2rem; }
+    .hide-mobile { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP HEADER -->
+<header style="background:#0d0d15;border-bottom:1px solid #1e1e2e;position:sticky;top:0;z-index:100;">
+  <div style="max-width:1600px;margin:0 auto;padding:10px 16px;">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <!-- Logo -->
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:1.5rem;">₿</span>
+        <span style="font-weight:800;font-size:1.1rem;background:linear-gradient(135deg,#F7931A,#FFD700);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">DCA Tracker</span>
+      </div>
+      <!-- Nav -->
+      <nav style="display:flex;gap:4px;overflow-x:auto;align-items:center;" class="scrollbar-hide">
+        <div class="nav-link active" onclick="showPage('dashboard')">📊 Dashboard</div>
+        <div class="nav-link" onclick="showPage('portfolio')">💼 Portfolio</div>
+        <div class="nav-link" onclick="showPage('purchases')">🛒 Покупки</div>
+        <div class="nav-link" onclick="showPage('simulations')">🔬 Симулации</div>
+        <div style="position:relative;" id="charts-nav-wrap">
+          <div class="nav-link" id="charts-nav-btn" onclick="toggleChartsMenu(event)">📈 Графики ▾</div>
+          <div id="charts-submenu" style="display:none;position:absolute;top:calc(100% + 6px);left:0;background:#16161f;border:1px solid #2d2d3d;border-radius:10px;padding:8px;z-index:200;min-width:210px;box-shadow:0 8px 24px #000a;" onclick="event.stopPropagation()">
+            <div style="font-size:0.68rem;color:#6b7280;padding:4px 8px 6px;font-weight:700;letter-spacing:.06em;">НАТРУПВАНЕ</div>
+            <div class="submenu-item" onclick="showChartGroup('accumulation')">₿ BTC Натрупване</div>
+            <div style="font-size:0.68rem;color:#6b7280;padding:8px 8px 6px;font-weight:700;letter-spacing:.06em;">ПРЕДСТАВЯНЕ</div>
+            <div class="submenu-item" onclick="showChartGroup('performance')">💰 Стойност &amp; ROI</div>
+            <div style="font-size:0.68rem;color:#6b7280;padding:8px 8px 6px;font-weight:700;letter-spacing:.06em;">СТРАТЕГИЯ</div>
+            <div class="submenu-item" onclick="showChartGroup('strategy')">🔬 DCA Сравнение</div>
+            <div style="font-size:0.68rem;color:#6b7280;padding:8px 8px 6px;font-weight:700;letter-spacing:.06em;">ПАЗАР</div>
+            <div class="submenu-item" onclick="showChartGroup('market')">📡 Пазарни индикатори</div>
+            <div style="border-top:1px solid #2d2d3d;margin:6px 0;"></div>
+            <div class="submenu-item" onclick="showChartGroup('all')">🗂 Всички (15 графики)</div>
+          </div>
+        </div>
+        <div class="nav-link" onclick="showPage('settings')">⚙️ Настройки</div>
+      </nav>
+      <!-- Right actions -->
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <span id="backup-reminder" style="font-size:0.72rem;color:#eab308;display:none;">💾 Backup!</span>
+        <button class="btn btn-secondary" style="font-size:0.75rem;" onclick="exportJSON()">⬇ JSON</button>
+        <button class="btn btn-secondary" style="font-size:0.75rem;" onclick="exportCSV()">⬇ CSV</button>
+        <label class="btn btn-secondary" style="font-size:0.75rem;cursor:pointer;">⬆ Import<input type="file" accept=".json" style="display:none;" onchange="importJSON(event)"/></label>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- PRICE BAR -->
+<div style="background:#0f0f1a;border-bottom:1px solid #1e1e2e;padding:10px 16px;">
+  <div style="max-width:1600px;margin:0 auto;display:flex;align-items:center;flex-wrap:wrap;gap:16px;">
+    <!-- Live Price -->
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span id="price-dot" class="pulse-dot" style="background:#22c55e;"></span>
+      <span class="price-display" id="btc-price">$--,---</span>
+      <div>
+        <span id="price-change" style="font-size:0.85rem;font-weight:600;"></span>
+        <div style="font-size:0.7rem;color:#6b7280;">
+          <span id="price-source">коингеко</span> · <span id="price-time">--:--</span>
+        </div>
+      </div>
+    </div>
+    <!-- Manual price -->
+    <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+      <input type="number" id="manual-price" placeholder="Ръчна цена $" style="width:160px;height:34px;"/>
+      <button class="btn btn-secondary" style="height:34px;white-space:nowrap;" onclick="useManualPrice()">Ръчна цена</button>
+      <button class="btn btn-secondary" style="height:34px;" onclick="fetchPriceNow()">🔄</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main style="max-width:1600px;margin:0 auto;padding:16px;">
+
+<!-- ========== DASHBOARD PAGE ========== -->
+<div id="page-dashboard" class="page active">
+  <!-- TOP ROW: RSI + F&G + MA200 + ATH + Risk Score -->
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;margin-bottom:12px;">
+    <!-- RSI Panel -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-weight:700;font-size:0.9rem;">📐 RSI Индикатор</span>
+        <div style="display:flex;gap:4px;">
+          <button class="tab-btn active" id="rsi-btn-4h" onclick="setRSIFrame('4h')">4H</button>
+          <button class="tab-btn" id="rsi-btn-1d" onclick="setRSIFrame('1d')">1D</button>
+          <button class="tab-btn" id="rsi-btn-1w" onclick="setRSIFrame('1w')">1W</button>
+        </div>
+      </div>
+      <div style="font-size:0.7rem;color:#6b7280;margin-bottom:8px;">Relative Strength Index — измерва силата на тренда. <span style="color:#22c55e;">Под 30</span> = изпродан пазар (купувателна зона), <span style="color:#ef4444;">над 70</span> = прекупен (опасност от корекция).</div>
+      <div style="text-align:center;">
+        <div style="font-size:3rem;font-weight:800;line-height:1;" id="rsi-value">--</div>
+        <div id="rsi-label" style="font-size:0.8rem;margin-top:4px;">Зареждане...</div>
+        <div class="progress-bar" style="margin-top:10px;">
+          <div class="progress-fill" id="rsi-bar" style="width:50%;background:#eab308;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:#6b7280;margin-top:2px;">
+          <span style="color:#22c55e;">◀ Oversold</span><span>50</span><span style="color:#ef4444;">Overbought ▶</span>
+        </div>
+      </div>
+      <div style="margin-top:6px;font-size:0.72rem;color:#6b7280;text-align:center;" id="rsi-frame-label">Времева рамка: 4H</div>
+      <div style="margin-top:6px;font-size:0.7rem;padding:6px 8px;background:#0f0f1a;border-radius:6px;border-left:3px solid #F7931A;color:#9ca3af;" id="rsi-dca-hint">—</div>
+    </div>
+
+    <!-- Middle metrics -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      <!-- Fear & Greed -->
+      <div class="card" style="text-align:center;">
+        <div style="font-size:0.8rem;font-weight:700;margin-bottom:2px;">😨 Fear &amp; Greed</div>
+        <div style="font-size:0.68rem;color:#6b7280;margin-bottom:6px;">Пазарни емоции 0–100. <span style="color:#22c55e;">0=Extreme Fear</span> (купувай), <span style="color:#ef4444;">100=Extreme Greed</span> (внимавай).</div>
+        <div style="font-size:2.5rem;font-weight:800;" id="fg-value">--</div>
+        <div id="fg-label" style="font-size:0.8rem;margin-top:4px;">Зареждане...</div>
+        <div class="progress-bar" style="margin-top:8px;">
+          <div class="progress-fill" id="fg-bar" style="width:50%;background:#eab308;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.68rem;color:#6b7280;margin-top:2px;"><span style="color:#22c55e;">Fear</span><span>Neutral</span><span style="color:#ef4444;">Greed</span></div>
+      </div>
+      <!-- MA200 -->
+      <div class="card" style="text-align:center;">
+        <div style="font-size:0.8rem;font-weight:700;margin-bottom:2px;">📉 MA200</div>
+        <div style="font-size:0.68rem;color:#6b7280;margin-bottom:6px;">200-дневна плъзгаща средна. <span style="color:#22c55e;">Под MA200</span> = исторически евтин BTC. <span style="color:#ef4444;">Над</span> = бичи пазар.</div>
+        <div style="font-size:1.1rem;font-weight:700;" id="ma200-price">--</div>
+        <div id="ma200-status" class="tag tag-yellow" style="margin:6px auto;display:inline-block;">Зареждане</div>
+        <div style="font-size:0.75rem;color:#6b7280;margin-top:4px;" id="ma200-pct">--% от MA200</div>
+        <div style="font-size:0.68rem;color:#6b7280;margin-top:4px;" id="ma200-hint">—</div>
+      </div>
+      <!-- ATH -->
+      <div class="card" style="text-align:center;">
+        <div style="font-size:0.8rem;font-weight:700;margin-bottom:2px;">🏆 ATH</div>
+        <div style="font-size:0.68rem;color:#6b7280;margin-bottom:6px;">All-Time High. Колкото по-далеч от ATH, толкова по-голям потенциал за растеж.</div>
+        <div style="font-size:1.1rem;font-weight:700;" id="ath-price">$109,588</div>
+        <div id="ath-pct" style="font-size:1.4rem;font-weight:800;color:#ef4444;margin-top:4px;">--%</div>
+        <div style="font-size:0.72rem;color:#6b7280;margin-top:2px;">под ATH</div>
+        <div style="font-size:0.68rem;margin-top:6px;" id="ath-hint">—</div>
+      </div>
+      <!-- Anchor -->
+      <div class="card" style="text-align:center;">
+        <div style="font-size:0.8rem;font-weight:700;margin-bottom:2px;">⚓ Котва / DCA</div>
+        <div style="font-size:0.68rem;color:#6b7280;margin-bottom:6px;">Референтна цена. <span style="color:#22c55e;">Над котвата</span> = само базова вноска. <span style="color:#F7931A;">Под котвата</span> = активират се мултипликатори.</div>
+        <div style="font-size:1.2rem;font-weight:700;color:#F7931A;" id="anchor-display">$62,000</div>
+        <div id="anchor-status" class="tag tag-orange" style="margin:6px auto;display:inline-block;">Над котвата</div>
+        <div style="font-size:0.72rem;color:#6b7280;margin-top:2px;">Базова: $<span id="base-amt-display">36</span></div>
+        <div style="font-size:0.68rem;margin-top:4px;" id="anchor-diff-hint">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RISK SCORE + RECOMMENDATION ROW -->
+  <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:12px;margin-bottom:12px;">
+    <!-- Risk Score Gauge -->
+    <div class="card" style="text-align:center;">
+      <div style="font-weight:700;font-size:0.9rem;margin-bottom:2px;">🎯 Risk Score Engine</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-bottom:8px;">Композитен индекс 0–100 от 4 индикатора. <span style="color:#22c55e;">0–30 = купувай агресивно</span>, <span style="color:#eab308;">40–60 = нормална вноска</span>, <span style="color:#ef4444;">70–100 = само база</span>. Мултипликаторът на вноската се определя от тази стойност.</div>
+      <canvas id="risk-gauge-canvas" width="200" height="110" style="max-width:200px;margin:0 auto;display:block;"></canvas>
+      <div style="font-size:2rem;font-weight:800;margin-top:4px;" id="risk-score-val">--</div>
+      <div id="risk-score-label" style="font-size:0.8rem;color:#6b7280;">Изчисляване...</div>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:0.72rem;" id="risk-breakdown"></div>
+      <div style="margin-top:8px;font-size:0.68rem;color:#6b7280;text-align:left;padding:6px 8px;background:#0f0f1a;border-radius:6px;" id="risk-safety-note">—</div>
+    </div>
+
+    <!-- Recommended Buy — expanded with full reasoning -->
+    <div class="card" style="background:linear-gradient(135deg,#0a140a,#111118);border:1px solid #22c55e44;">
+      <div style="font-size:0.85rem;font-weight:700;color:#22c55e;margin-bottom:4px;">💡 Препоръчителна DCA вноска</div>
+      <div style="font-size:0.68rem;color:#6b7280;margin-bottom:10px;">Изчислена от базова сума × ценови мултипликатор × Risk мултипликатор. Smart Safety блокира повишения при единичен сигнал.</div>
+      <div style="text-align:center;">
+        <div style="font-size:3.5rem;font-weight:800;color:#22c55e;line-height:1;" id="rec-amount">$--</div>
+        <div style="font-size:0.75rem;color:#6b7280;margin-top:4px;">за следващата покупка на <span id="rec-next-date">—</span></div>
+      </div>
+      <div class="divider"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.78rem;margin-bottom:10px;">
+        <div class="card2"><div style="font-size:0.65rem;color:#6b7280;">Базова вноска</div><span class="orange" id="rec-base">$36</span></div>
+        <div class="card2"><div style="font-size:0.65rem;color:#6b7280;">Risk мулт. (Score→)</div><span class="green" id="rec-risk-mult">1.00x</span></div>
+        <div class="card2"><div style="font-size:0.65rem;color:#6b7280;">Ценови мулт. (диапазон)</div><span class="yellow" id="rec-price-mult">1.00x</span></div>
+        <div class="card2"><div style="font-size:0.65rem;color:#6b7280;">Финална сума</div><span style="color:#22c55e;font-weight:700;" id="rec-final">$36</span></div>
+      </div>
+      <!-- Full reasoning block -->
+      <div style="background:#0a0a12;border-radius:8px;padding:10px;font-size:0.72rem;border:1px solid #1e1e2e;">
+        <div style="color:#9ca3af;font-weight:600;margin-bottom:6px;">📋 Обосновка на препоръката:</div>
+        <div id="rec-full-reason" style="color:#9ca3af;line-height:1.6;">—</div>
+      </div>
+    </div>
+
+    <!-- Portfolio Quick View -->
+    <div class="card">
+      <div class="section-title">💼 Портфолио сега</div>
+      <div class="kpi-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="kpi-box">
+          <div style="font-size:0.7rem;color:#6b7280;">Общо BTC</div>
+          <div style="font-size:1.2rem;font-weight:700;color:#F7931A;" id="pf-btc">0.00000</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.7rem;color:#6b7280;">Вложени USD</div>
+          <div style="font-size:1.1rem;font-weight:700;" id="pf-usd">$0</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.7rem;color:#6b7280;">Средна цена</div>
+          <div style="font-size:1rem;font-weight:700;" id="pf-avg">$0</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.7rem;color:#6b7280;">Текуща стойност</div>
+          <div style="font-size:1rem;font-weight:700;color:#22c55e;" id="pf-value">$0</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.7rem;color:#6b7280;">Нереал. печалба</div>
+          <div style="font-size:1rem;font-weight:700;" id="pf-profit">$0</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.7rem;color:#6b7280;">ROI %</div>
+          <div style="font-size:1.2rem;font-weight:700;" id="pf-roi">0%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEALTH SCORES ROW -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px;">
+    <div class="card" style="text-align:center;">
+      <div style="font-size:0.75rem;font-weight:700;">🏥 Portfolio Health</div>
+      <div style="font-size:0.65rem;color:#6b7280;margin:3px 0 6px;">Здравето на портфолиото — колко е в печалба спрямо инвестираното.</div>
+      <div style="font-size:1.8rem;font-weight:800;color:#22c55e;" id="health-score">--</div>
+      <div class="progress-bar"><div class="progress-fill" id="health-bar" style="width:0%;background:#22c55e;"></div></div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="font-size:0.75rem;font-weight:700;">⚡ DCA Efficiency</div>
+      <div style="font-size:0.65rem;color:#6b7280;margin:3px 0 6px;">Колко по-добра е средната ти цена спрямо първата покупка — ефектът на DCA.</div>
+      <div style="font-size:1.8rem;font-weight:800;color:#F7931A;" id="dca-score">--</div>
+      <div class="progress-bar"><div class="progress-fill" id="dca-bar" style="width:0%;background:#F7931A;"></div></div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="font-size:0.75rem;font-weight:700;">₿ BTC Accumulation</div>
+      <div style="font-size:0.65rem;color:#6b7280;margin:3px 0 6px;">Напредък към 0.1 BTC. Всяка покупка те доближава до значима позиция.</div>
+      <div style="font-size:1.8rem;font-weight:800;color:#FFD700;" id="accum-score">--</div>
+      <div class="progress-bar"><div class="progress-fill" id="accum-bar" style="width:0%;background:#FFD700;"></div></div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div style="font-size:0.75rem;font-weight:700;">📡 Market Status</div>
+      <div style="font-size:0.65rem;color:#6b7280;margin:3px 0 6px;">Текущото пазарно условие базирано на Risk Score — ориентир за стратегията.</div>
+      <div style="font-size:0.9rem;font-weight:700;margin-top:4px;" id="market-status">--</div>
+      <div style="font-size:0.72rem;color:#6b7280;margin-top:4px;" id="market-detail">--</div>
+    </div>
+  </div>
+
+  <!-- NEXT DCA COUNTDOWN -->
+  <div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:0.8rem;color:#6b7280;">Следваща DCA покупка</div>
+        <div style="font-size:1.4rem;font-weight:700;" id="next-dca-date">--</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:0.8rem;color:#6b7280;">Оставащи дни</div>
+        <div style="font-size:2rem;font-weight:800;color:#F7931A;" id="days-left">--</div>
+      </div>
+      <div>
+        <div style="font-size:0.8rem;color:#6b7280;">Последна покупка</div>
+        <div style="font-size:1.1rem;font-weight:600;" id="last-purchase-date">--</div>
+      </div>
+      <div>
+        <div style="font-size:0.8rem;color:#6b7280;">Брой покупки</div>
+        <div style="font-size:1.4rem;font-weight:700;color:#F7931A;" id="total-purchases">0</div>
+      </div>
+      <button class="btn btn-primary" onclick="openAddPurchase()">+ Нова покупка</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD MINI CHART -->
+  <div class="card">
+    <div class="section-title">Портфолио стойност (история)</div>
+    <div class="chart-container">
+      <canvas id="dash-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PORTFOLIO PAGE ========== -->
+<div id="page-portfolio" class="page">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <!-- Initial Portfolio -->
+    <div class="card">
+      <div class="section-title">🏦 Начало портфолио</div>
+      <div style="display:grid;gap:12px;">
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">BTC количество</label>
+          <input type="number" id="init-btc" placeholder="0.0" step="0.00001" oninput="savePortfolio()"/>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">Вложени USD</label>
+          <input type="number" id="init-usd" placeholder="0" step="1" oninput="savePortfolio()"/>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">Средна цена ($)</label>
+          <input type="number" id="init-avg" placeholder="0" step="1" oninput="savePortfolio()"/>
+        </div>
+        <div style="font-size:0.75rem;color:#6b7280;">При промяна на BTC или USD → средната цена се изчислява автоматично.</div>
+      </div>
+    </div>
+
+    <!-- Total Portfolio -->
+    <div class="card">
+      <div class="section-title">📊 Общо портфолио</div>
+      <div class="kpi-grid">
+        <div class="kpi-box">
+          <div style="font-size:0.72rem;color:#6b7280;">Общо BTC</div>
+          <div class="metric-value orange" id="total-btc">0.00000</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.72rem;color:#6b7280;">Вложени USD</div>
+          <div class="metric-value" id="total-invested">$0</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.72rem;color:#6b7280;">Средна цена</div>
+          <div class="metric-value" id="total-avg">$0</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.72rem;color:#6b7280;">Текуща стойност</div>
+          <div class="metric-value green" id="total-value">$0</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.72rem;color:#6b7280;">Нереализирана П/З</div>
+          <div class="metric-value" id="total-pnl">$0</div>
+        </div>
+        <div class="kpi-box">
+          <div style="font-size:0.72rem;color:#6b7280;">ROI %</div>
+          <div class="metric-value" id="total-roi">0.00%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Future Price Simulator -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">🔮 Future Price Simulator</div>
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:0.85rem;color:#6b7280;">BTC Бъдеща цена</span>
+        <span style="font-weight:700;color:#F7931A;" id="sim-price-label">$100,000</span>
+      </div>
+      <input type="range" class="slider-input" id="sim-price-slider" min="50000" max="1000000" step="1000" value="100000" oninput="updateSimulator()"/>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        <button class="btn btn-secondary" onclick="setSimPrice(100000)">100K</button>
+        <button class="btn btn-secondary" onclick="setSimPrice(150000)">150K</button>
+        <button class="btn btn-secondary" onclick="setSimPrice(250000)">250K</button>
+        <button class="btn btn-secondary" onclick="setSimPrice(500000)">500K</button>
+        <button class="btn btn-secondary" onclick="setSimPrice(1000000)">1M</button>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-box" style="text-align:center;">
+        <div style="font-size:0.72rem;color:#6b7280;">Бъдеща стойност</div>
+        <div class="metric-value green" id="sim-value">$0</div>
+      </div>
+      <div class="kpi-box" style="text-align:center;">
+        <div style="font-size:0.72rem;color:#6b7280;">Печалба</div>
+        <div class="metric-value green" id="sim-profit">$0</div>
+      </div>
+      <div class="kpi-box" style="text-align:center;">
+        <div style="font-size:0.72rem;color:#6b7280;">ROI %</div>
+        <div class="metric-value orange" id="sim-roi">0%</div>
+      </div>
+      <div class="kpi-box" style="text-align:center;">
+        <div style="font-size:0.72rem;color:#6b7280;">Множител x</div>
+        <div class="metric-value yellow" id="sim-mult">0x</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PURCHASES PAGE ========== -->
+<div id="page-purchases" class="page">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h2 style="font-size:1.2rem;font-weight:700;">Моите DCA покупки</h2>
+      <div style="font-size:0.8rem;color:#6b7280;" id="purchases-summary">0 покупки · $0 вложени · 0 BTC</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="purchases-sort" onchange="updatePurchasesTable()" style="width:160px;height:34px;font-size:0.8rem;">
+        <option value="asc">📅 Хронологично ↑</option>
+        <option value="desc">📅 Най-нови първо ↓</option>
+      </select>
+      <button class="btn btn-primary" onclick="openAddPurchase()">+ Нова покупка</button>
+      <button class="btn btn-danger" onclick="resetPortfolio()">🗑 Reset</button>
+    </div>
+  </div>
+
+  <!-- Purchases Analytics Panel -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">📊 Анализ на покупките</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;" id="purchases-analytics">
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Брой покупки</div><div class="metric-value orange" id="pa-count">0</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Общо вложени (нови)</div><div class="metric-value" id="pa-usd">$0</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Общо BTC (нови)</div><div class="metric-value orange" id="pa-btc">0.000000</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Средна цена (нови)</div><div class="metric-value" id="pa-avg">$0</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Стойност сега (нови)</div><div class="metric-value green" id="pa-value">$0</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Печалба/Загуба (нови)</div><div class="metric-value" id="pa-pnl">$0</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">ROI % (нови)</div><div class="metric-value" id="pa-roi">0%</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Средна вноска</div><div class="metric-value yellow" id="pa-avg-buy">$0</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Покупки под котвата</div><div class="metric-value green" id="pa-below-anchor">0 (0%)</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Най-добра покупка</div><div class="metric-value green" id="pa-best">—</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Най-скъпа покупка</div><div class="metric-value red" id="pa-worst">—</div></div>
+      <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Дни между покупки (ср.)</div><div class="metric-value" id="pa-interval">—</div></div>
+    </div>
+  </div>
+
+  <div class="card" style="overflow-x:auto;">
+    <table id="purchases-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Дата</th>
+          <th>Цена BTC</th>
+          <th>BTC купени</th>
+          <th>USD вложени</th>
+          <th>Стойност сега</th>
+          <th>П/З $</th>
+          <th>П/З %</th>
+          <th>vs Котва</th>
+          <th>Препоръка</th>
+          <th>Бележка</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="purchases-tbody">
+        <tr><td colspan="12" style="text-align:center;color:#6b7280;padding:32px;">Няма покупки. Добавете първата!</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ========== SIMULATIONS PAGE ========== -->
+<div id="page-simulations" class="page">
+  <!-- Lump Sum vs DCA -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">⚖️ Eднократна инвестиция vs DCA</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="lumpsum-grid">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <!-- Strategy Comparison -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="section-title">🔬 Fixed DCA vs Dynamic DCA</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" id="strategy-grid">
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <!-- Sim Chart -->
+  <div class="card">
+    <div class="section-title">Симулация — натрупан BTC</div>
+    <div class="chart-container" style="height:280px;">
+      <canvas id="sim-chart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ========== CHARTS PAGE ========== -->
+<div id="page-charts" class="page">
+  <div class="card" style="margin-bottom:14px;padding:12px 16px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="font-size:0.78rem;color:#6b7280;font-weight:600;white-space:nowrap;">Група:</span>
+      <button class="tab-btn active" id="cg-btn-accumulation" onclick="showChartGroup('accumulation')">₿ Натрупване</button>
+      <button class="tab-btn" id="cg-btn-performance" onclick="showChartGroup('performance')">📈 Представяне</button>
+      <button class="tab-btn" id="cg-btn-strategy" onclick="showChartGroup('strategy')">🔬 Стратегия</button>
+      <button class="tab-btn" id="cg-btn-market" onclick="showChartGroup('market')">📡 Пазар</button>
+      <button class="tab-btn" id="cg-btn-all" onclick="showChartGroup('all')">🔢 Всички</button>
+    </div>
+    <div style="font-size:0.72rem;color:#6b7280;margin-top:8px;" id="chart-group-desc">Натрупване на BTC — брой монети, средна цена, нови vs начални покупки</div>
+  </div>
+
+  <div id="cg-accumulation" class="chart-group" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>₿ Натрупани BTC — общо портфолио</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Кумулативен брой BTC (начален + нови). Расте с всяка покупка.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-btc"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>₿ BTC само от нови DCA покупки</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Само новите монети — темпото на акумулация.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-btc-new"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>📅 BTC купени по месец</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Колко BTC купен всеки месец. Повече при падане = добра стратегия.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-monthly"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>💵 Средна цена (нови) vs Текуща цена</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Ако средната е под текущата — DCA покупките са в печалба.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-avg-new"></canvas></div></div>
+  </div>
+
+  <div id="cg-performance" class="chart-group" style="display:none;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>💰 Стойност на портфолиото vs Вложени $</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Оранжево = текуща стойност. Сиво = вложени. Разликата = печалба/загуба.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-value-vs-invested"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>📊 Нереализирана П/З ($) — цветна зона</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Зелена зона = печалба, червена = загуба. Нулата е ключовата линия.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-pnl"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>📈 ROI % — Възвращаемост</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Процентна доходност. Над нулата = печеливш. Идеята: DCA намалява волатилността.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-roi"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>💵 Вложени USD (кумулативно)</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Общо изразходени долари. Стъпалата = всяка поредна покупка.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-usd"></canvas></div></div>
+  </div>
+
+  <div id="cg-strategy" class="chart-group" style="display:none;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>⚖️ Dynamic DCA vs Fixed DCA (BTC натрупани)</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Зелено = умна стратегия, сиво = механично $36. Разликата = ефект от мултипликаторите.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-compare"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>💡 История на препоръчаните вноски ($)</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Кога се е активирал мултипликаторът. Портокалово = база, червено = максимум.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-recommendation"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>📉 Цена на покупките vs Средна vs Котва</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Всяка точка = покупка. Лилаво = средна цена. Жълто = котва $62K.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-avg"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>💵 Размер на всяка вноска ($)</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Колко USD е вложено при всяка покупка. Виж дали мултипликаторите са работили.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-usd-per-buy"></canvas></div></div>
+  </div>
+
+  <div id="cg-market" class="chart-group" style="display:none;grid-template-columns:1fr 1fr;gap:16px;">
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>📡 Risk Score при всяка покупка</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Какъв е бил Risk Score в момента на покупката. Под 40 = добри условия. Над 70 = внимание.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-risk-history"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>🎯 Цена на покупка vs Котва ($62K)</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Оранжеви точки = купуване под котвата (добре). Сиви = над котвата (базова вноска).</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-buy-prices"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>📊 % разлика от котвата при всяка покупка</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Зелено = купено под котвата. Червено = над. Позитивно % = над котвата.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-vs-anchor"></canvas></div></div>
+    <div class="card"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>₿ BTC получени за $1 — ефективност</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Колко BTC носи всеки вложен долар. По-висока стойност = по-добра цена на BTC.</span></div><div class="chart-container" style="height:240px;"><canvas id="chart-btc-per-dollar"></canvas></div></div>
+    <div class="card" style="grid-column:1/-1;"><div class="section-title" style="flex-direction:column;align-items:flex-start;gap:2px;"><span>📈 Cost Basis — как средната цена се е движила</span><span style="font-size:0.68rem;color:#6b7280;font-weight:400;">Намаляваща линия = купувал си при падане (правилна DCA). Текуща цена е референцията.</span></div><div class="chart-container" style="height:220px;"><canvas id="chart-cost-basis"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ========== SETTINGS PAGE ========== -->
+<div id="page-settings" class="page">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <!-- DCA Settings -->
+    <div class="card">
+      <div class="section-title">⚙️ DCA Настройки</div>
+      <div style="display:grid;gap:12px;">
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;">Базова вноска ($)</label>
+          <input type="number" id="set-base" value="36" oninput="saveSettings()"/>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;">Период (дни)</label>
+          <input type="number" id="set-period" value="5" oninput="saveSettings()"/>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;">Котва цена ($)</label>
+          <input type="number" id="set-anchor" value="62000" oninput="saveSettings()"/>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;">Макс вноска ($)</label>
+          <input type="number" id="set-max" value="60" oninput="saveSettings()"/>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;">Буферна зона под котвата (%)</label>
+          <input type="number" id="set-buffer" value="5" min="0" max="20" step="0.5" oninput="saveSettings()"/>
+          <div style="font-size:0.68rem;color:#6b7280;margin-top:4px;">В тази зона мултипликаторите се притискат към 1.0x, дори при нисък Risk Score. Предпазва от резки скокове на вноската точно под котвата.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Risk Weights -->
+    <div class="card">
+      <div class="section-title">⚖️ Тежести на Risk Score</div>
+      <div style="display:grid;gap:12px;" id="weights-form">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;"><span style="color:#6b7280;">Цена/Котва</span><span id="w-price-val" class="orange">40%</span></div>
+          <input type="range" class="slider-input" id="w-price" min="0" max="100" value="40" oninput="updateWeights('price')"/>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;"><span style="color:#6b7280;">Fear & Greed</span><span id="w-fg-val" class="yellow">25%</span></div>
+          <input type="range" class="slider-input" id="w-fg" min="0" max="100" value="25" oninput="updateWeights('fg')"/>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;"><span style="color:#6b7280;">RSI</span><span id="w-rsi-val" style="color:#22c55e;">20%</span></div>
+          <input type="range" class="slider-input" id="w-rsi" min="0" max="100" value="20" oninput="updateWeights('rsi')"/>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;"><span style="color:#6b7280;">MA200</span><span id="w-ma-val" style="color:#a78bfa;">15%</span></div>
+          <input type="range" class="slider-input" id="w-ma" min="0" max="100" value="15" oninput="updateWeights('ma')"/>
+        </div>
+        <div style="font-size:0.8rem;padding:8px;border-radius:8px;" id="weights-total-box">
+          Сума: <span id="weights-total" class="green">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Multipliers -->
+    <div class="card">
+      <div class="section-title">✖️ Risk Мултипликатори</div>
+      <div style="display:grid;gap:8px;" id="mult-form">
+        <!-- filled by JS -->
+      </div>
+    </div>
+
+    <!-- Price Range Multipliers -->
+    <div class="card">
+      <div class="section-title">📉 Ценови диапазони</div>
+      <div style="font-size:0.75rem;color:#6b7280;margin-bottom:8px;">Автоматично при цена под котвата</div>
+      <div id="price-ranges-display" style="display:grid;gap:6px;">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- ========== ADD PURCHASE MODAL ========== -->
+<div id="modal-purchase" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('modal-purchase')">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="font-weight:700;font-size:1.1rem;" id="modal-purchase-title">Нова покупка</h3>
+      <button onclick="closeModal('modal-purchase')" style="background:none;border:none;color:#6b7280;cursor:pointer;font-size:1.2rem;">✕</button>
+    </div>
+    <div style="display:grid;gap:12px;">
+      <input type="hidden" id="edit-purchase-id" value=""/>
+      <div>
+        <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">Дата *</label>
+        <input type="date" id="p-date"/>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">Цена BTC ($) *</label>
+        <input type="number" id="p-price" placeholder="напр. 65000" oninput="autoCalcPurchase()"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">BTC количество</label>
+          <input type="number" id="p-btc" placeholder="0.0005" step="0.00001" oninput="autoCalcPurchase('btc')"/>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">USD вложени</label>
+          <input type="number" id="p-usd" placeholder="36" oninput="autoCalcPurchase('usd')"/>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">Препоръчана вноска ($)</label>
+        <input type="number" id="p-rec" placeholder="автоматично"/>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;color:#6b7280;display:block;margin-bottom:4px;">Бележка</label>
+        <input type="text" id="p-note" placeholder="напр. RSI oversold buy"/>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="closeModal('modal-purchase')">Отказ</button>
+        <button class="btn btn-primary" onclick="savePurchase()">Запази</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  btcPrice: 0,
+  prevPrice: 0,
+  priceSource: '—',
+  manualPrice: null,
+  useManual: false,
+
+  rsiFrame: '4h',
+  rsiValues: { '4h': null, '1d': null, '1w': null },
+  fearGreed: null,
+  ma200: null,
+  ath: 126198,
+  athDate: null,
+
+  settings: {
+    base: 36,
+    period: 5,
+    anchor: 62000,
+    maxBuy: 60,
+    bufferPct: 5
+  },
+  weights: { price: 40, fg: 25, rsi: 20, ma: 15 },
+  riskMultipliers: [
+    { min: 0, max: 20, mult: 1.80 },
+    { min: 20, max: 40, mult: 1.50 },
+    { min: 40, max: 60, mult: 1.20 },
+    { min: 60, max: 80, mult: 1.00 },
+    { min: 80, max: 100, mult: 1.00 }
+  ],
+  priceRanges: [
+    { min: 60000, max: 62000, mult: 1.00 },
+    { min: 58000, max: 60000, mult: 1.05 },
+    { min: 56000, max: 58000, mult: 1.10 },
+    { min: 54000, max: 56000, mult: 1.15 },
+    { min: 52000, max: 54000, mult: 1.20 },
+    { min: 50000, max: 52000, mult: 1.25 },
+    { min: 47000, max: 50000, mult: 1.32 },
+    { min: 44000, max: 47000, mult: 1.40 },
+    { min: 41000, max: 44000, mult: 1.50 },
+    { min: 38000, max: 41000, mult: 1.60 },
+    { min: 35000, max: 38000, mult: 1.67 }
+  ],
+
+  portfolio: { btc: 0, usd: 0, avg: 0 },
+  purchases: [],
+  lastSaved: null
+};
+
+let charts = {};
+
+// ============================================================
+// STORAGE
+// ============================================================
+function saveAll() {
+  const data = {
+    settings: state.settings,
+    weights: state.weights,
+    riskMultipliers: state.riskMultipliers,
+    portfolio: state.portfolio,
+    purchases: state.purchases,
+    ath: state.ath
+  };
+  localStorage.setItem('btc-dca-v2', JSON.stringify(data));
+  state.lastSaved = new Date();
+  checkBackupReminder();
+}
+
+function sanitizePurchases(arr) {
+  if (!Array.isArray(arr)) return [];
+  const cleaned = [];
+  arr.forEach(p => {
+    const price = parseFloat(p.price);
+    const btc = parseFloat(p.btc);
+    const usd = parseFloat(p.usd);
+    // Reject entries with invalid/zero/negative price or absurd BTC amounts
+    if (!p.date || !price || price <= 0 || !isFinite(price)) return;
+    if (!btc || btc <= 0 || !isFinite(btc)) return;
+    if (!usd || usd <= 0 || !isFinite(usd)) return;
+    cleaned.push({
+      date: p.date,
+      price,
+      btc: +btc.toFixed(8),
+      usd: +usd.toFixed(2),
+      rec: p.rec ? +parseFloat(p.rec).toFixed(2) : null,
+      note: p.note || ''
+    });
+  });
+  return cleaned;
+}
+
+function loadAll() {
+  try {
+    const raw = localStorage.getItem('btc-dca-v2');
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d.settings) state.settings = { ...state.settings, ...d.settings };
+    if (d.weights) state.weights = { ...state.weights, ...d.weights };
+    if (d.riskMultipliers) state.riskMultipliers = d.riskMultipliers;
+    if (d.portfolio) {
+      const btc = parseFloat(d.portfolio.btc) || 0;
+      const usd = parseFloat(d.portfolio.usd) || 0;
+      state.portfolio = {
+        btc: isFinite(btc) && btc >= 0 && btc < 1000 ? btc : 0,
+        usd: isFinite(usd) && usd >= 0 && usd < 100000000 ? usd : 0,
+        avg: parseFloat(d.portfolio.avg) || 0
+      };
+    }
+    if (d.purchases) {
+      const before = d.purchases.length;
+      state.purchases = sanitizePurchases(d.purchases);
+      if (state.purchases.length < before) {
+        console.warn(`Премахнати ${before - state.purchases.length} невалидни покупки при зареждане.`);
+      }
+    }
+    // Stored ATH is just a placeholder until fetchATH() refreshes it live on init.
+    if (d.ath) state.ath = d.ath;
+  } catch(e) { console.warn('Load error', e); }
+}
+
+function checkBackupReminder() {
+  const el = document.getElementById('backup-reminder');
+  // Show backup reminder if >7 days since user last exported (tracked separately)
+  const lastExport = localStorage.getItem('btc-dca-last-export');
+  if (!lastExport) { el.style.display = 'block'; return; }
+  const days = (Date.now() - parseInt(lastExport)) / 86400000;
+  el.style.display = days > 7 ? 'block' : 'none';
+}
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+function exportJSON() {
+  const data = {
+    version: 2,
+    exportDate: new Date().toISOString(),
+    settings: state.settings,
+    weights: state.weights,
+    riskMultipliers: state.riskMultipliers,
+    portfolio: state.portfolio,
+    purchases: state.purchases
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `btc-dca-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  localStorage.setItem('btc-dca-last-export', Date.now().toString());
+  document.getElementById('backup-reminder').style.display = 'none';
+}
+
+function exportCSV() {
+  let csv = 'Date,BTC Price,BTC Amount,USD Amount,Recommended,Note\n';
+  state.purchases.forEach(p => {
+    csv += `${p.date},${p.price},${p.btc},${p.usd},${p.rec||''},${(p.note||'').replace(/,/g,' ')}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = `btc-dca-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const d = JSON.parse(e.target.result);
+      if (d.settings) state.settings = { ...state.settings, ...d.settings };
+      if (d.weights) state.weights = { ...state.weights, ...d.weights };
+      if (d.riskMultipliers) state.riskMultipliers = d.riskMultipliers;
+      if (d.portfolio) {
+        const btc = parseFloat(d.portfolio.btc) || 0;
+        const usd = parseFloat(d.portfolio.usd) || 0;
+        state.portfolio = {
+          btc: isFinite(btc) && btc >= 0 && btc < 1000 ? btc : 0,
+          usd: isFinite(usd) && usd >= 0 && usd < 100000000 ? usd : 0,
+          avg: parseFloat(d.portfolio.avg) || 0
+        };
+      }
+      let rejectedCount = 0;
+      if (d.purchases) {
+        const before = d.purchases.length;
+        state.purchases = sanitizePurchases(d.purchases);
+        rejectedCount = before - state.purchases.length;
+      }
+      saveAll(); refreshAll();
+      alert(rejectedCount > 0
+        ? `✅ Данните са заредени. ⚠️ ${rejectedCount} невалидни покупки бяха отхвърлени (нереалистична цена/количество).`
+        : '✅ Данните са заредени успешно!');
+    } catch(err) { alert('❌ Грешен файл!'); }
+  };
+  reader.readAsText(file);
+}
+
+function resetPortfolio() {
+  if (!confirm('Изтриване на ВСИЧКИ покупки? Началното портфолио не се изтрива.')) return;
+  state.purchases = [];
+  saveAll(); refreshAll();
+}
+
+// ============================================================
+// PRICE FETCHING
+// ============================================================
+async function fetchPrice() {
+  if (state.useManual) return;
+  let price = null;
+
+  // Try CoinGecko
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true', { signal: AbortSignal.timeout(6000) });
+    const d = await r.json();
+    price = d.bitcoin?.usd;
+    if (price) {
+      state.prevPrice = state.btcPrice || price;
+      state.btcPrice = price;
+      state.priceSource = 'CoinGecko';
+      updatePriceUI(d.bitcoin?.usd_24h_change);
+      return;
+    }
+  } catch(e) {}
+
+  // Try Binance
+  try {
+    const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT', { signal: AbortSignal.timeout(6000) });
+    const d = await r.json();
+    price = parseFloat(d.lastPrice);
+    if (price) {
+      state.prevPrice = state.btcPrice || price;
+      state.btcPrice = price;
+      state.priceSource = 'Binance';
+      updatePriceUI(parseFloat(d.priceChangePercent));
+      return;
+    }
+  } catch(e) {}
+
+  // Try Gate.io
+  try {
+    const r = await fetch('https://api.gateio.ws/api/v4/spot/tickers?currency_pair=BTC_USDT', { signal: AbortSignal.timeout(6000) });
+    const d = await r.json();
+    price = parseFloat(d[0]?.last);
+    if (price) {
+      state.prevPrice = state.btcPrice || price;
+      state.btcPrice = price;
+      state.priceSource = 'Gate.io';
+      updatePriceUI(parseFloat(d[0]?.change_percentage));
+      return;
+    }
+  } catch(e) {}
+
+  document.getElementById('price-dot').style.background = '#ef4444';
+}
+
+async function fetchATH() {
+  // Primary: CoinGecko full market data (has real-time ATH)
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false', { signal: AbortSignal.timeout(8000) });
+    const d = await r.json();
+    const ath = d.market_data?.ath?.usd;
+    if (ath && ath > 50000) {
+      state.ath = Math.round(ath);
+      state.athDate = d.market_data?.ath_date?.usd || null;
+      updateATHUI();
+      saveAll();
+      return;
+    }
+  } catch(e) {}
+
+  // Fallback: if current price somehow exceeds stored ATH, treat current price as new ATH
+  if (state.btcPrice && state.btcPrice > state.ath) {
+    state.ath = Math.round(state.btcPrice);
+    updateATHUI();
+    saveAll();
+  }
+}
+
+function updatePriceUI(change) {
+  const p = state.btcPrice;
+  document.getElementById('btc-price').textContent = '$' + p.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  document.getElementById('price-source').textContent = state.priceSource;
+  document.getElementById('price-time').textContent = new Date().toLocaleTimeString('bg-BG', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  document.getElementById('price-dot').style.background = '#22c55e';
+
+  if (change !== undefined && change !== null) {
+    const el = document.getElementById('price-change');
+    const positive = change >= 0;
+    el.textContent = (positive ? '+' : '') + parseFloat(change).toFixed(2) + '%';
+    el.style.color = positive ? '#22c55e' : '#ef4444';
+  }
+
+  refreshAll();
+}
+
+function useManualPrice() {
+  const val = parseFloat(document.getElementById('manual-price').value);
+  if (!val || val <= 0) { alert('Въведете валидна цена'); return; }
+  state.useManual = true;
+  state.prevPrice = state.btcPrice || val;
+  state.btcPrice = val;
+  state.priceSource = 'Ръчна';
+  document.getElementById('price-dot').style.background = '#eab308';
+  updatePriceUI(null);
+}
+
+function fetchPriceNow() {
+  state.useManual = false;
+  fetchPrice();
+}
+
+// ============================================================
+// MARKET DATA — RSI (estimated from Binance klines)
+// ============================================================
+async function fetchRSI(frame) {
+  const intervalMap = { '4h': '4h', '1d': '1d', '1w': '1w' };
+  const interval = intervalMap[frame] || '1d';
+  try {
+    const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=50`, { signal: AbortSignal.timeout(8000) });
+    const klines = await r.json();
+    const closes = klines.map(k => parseFloat(k[4]));
+    const rsi = calcRSI(closes, 14);
+    state.rsiValues[frame] = rsi;
+    updateRSIUI();
+  } catch(e) {
+    // Fallback: estimate from price vs MA
+    const p = state.btcPrice;
+    if (p) {
+      const est = p > 70000 ? 65 : p > 50000 ? 45 : p > 40000 ? 35 : 25;
+      state.rsiValues[frame] = est + Math.random() * 10 - 5;
+      updateRSIUI();
+    }
+  }
+}
+
+function calcRSI(closes, period) {
+  if (closes.length < period + 1) return 50;
+  let gains = 0, losses = 0;
+  for (let i = closes.length - period; i < closes.length; i++) {
+    const diff = closes[i] - closes[i - 1];
+    if (diff > 0) gains += diff; else losses -= diff;
+  }
+  const avgGain = gains / period;
+  const avgLoss = losses / period;
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+
+function updateRSIUI() {
+  const rsi = state.rsiValues[state.rsiFrame];
+  if (rsi === null || rsi === undefined) return;
+  const val = Math.round(rsi);
+
+  const valEl = document.getElementById('rsi-value');
+  const bar = document.getElementById('rsi-bar');
+  const label = document.getElementById('rsi-label');
+  const hint = document.getElementById('rsi-dca-hint');
+  if (!valEl || !bar || !label) return;
+
+  valEl.textContent = val;
+  bar.style.width = val + '%';
+
+  let hintText = '';
+  if (val < 20) {
+    valEl.className = 'green'; bar.style.background = '#22c55e';
+    label.textContent = '🟢 Extreme Oversold — силен сигнал'; label.style.color = '#22c55e';
+    hintText = 'DCA намек: RSI потвърждава силен вход — допринася за увеличена вноска.';
+  } else if (val < 30) {
+    valEl.className = 'green'; bar.style.background = '#22c55e';
+    label.textContent = '🟢 Oversold — потенциален вход'; label.style.color = '#22c55e';
+    hintText = 'DCA намек: RSI в купувателна зона — положително за мултипликатора.';
+  } else if (val > 80) {
+    valEl.className = 'red'; bar.style.background = '#ef4444';
+    label.textContent = '🔴 Extreme Overbought — опасна зона'; label.style.color = '#ef4444';
+    hintText = 'DCA намек: RSI показва прегряване — само базова вноска.';
+  } else if (val > 70) {
+    valEl.className = 'red'; bar.style.background = '#ef4444';
+    label.textContent = '🔴 Overbought — внимавай'; label.style.color = '#ef4444';
+    hintText = 'DCA намек: RSI повишен — мулт. не се увеличава заради RSI.';
+  } else {
+    valEl.className = 'yellow'; bar.style.background = '#eab308';
+    label.textContent = '🟡 Неутрална зона (30–70)'; label.style.color = '#eab308';
+    hintText = 'DCA намек: RSI неутрален — не добавя, но не блокира мулт.';
+  }
+  if (hint) hint.textContent = hintText;
+}
+
+function setRSIFrame(frame) {
+  state.rsiFrame = frame;
+  ['4h', '1d', '1w'].forEach(f => {
+    document.getElementById(`rsi-btn-${f}`).classList.toggle('active', f === frame);
+  });
+  const rfl = document.getElementById('rsi-frame-label'); if (rfl) rfl.textContent = `Времева рамка: ${frame.toUpperCase()}`;
+  if (state.rsiValues[frame] === null) fetchRSI(frame);
+  else updateRSIUI();
+}
+
+// ============================================================
+// FEAR & GREED
+// ============================================================
+async function fetchFearGreed() {
+  try {
+    const r = await fetch('https://api.alternative.me/fng/?limit=1', { signal: AbortSignal.timeout(6000) });
+    const d = await r.json();
+    const val = parseInt(d.data[0].value);
+    state.fearGreed = val;
+    updateFGUI();
+  } catch(e) {
+    // Estimate from RSI / price
+    const p = state.btcPrice;
+    if (p) {
+      state.fearGreed = p > 80000 ? 72 : p > 60000 ? 55 : p > 45000 ? 38 : 22;
+      updateFGUI();
+    }
+  }
+}
+
+function updateFGUI() {
+  const val = state.fearGreed;
+  if (val === null || val === undefined) return;
+  const se = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const ss = (id, p, v) => { const e = document.getElementById(id); if (e) e.style[p] = v; };
+  se('fg-value', val);
+  ss('fg-bar', 'width', val + '%');
+  const label = document.getElementById('fg-label');
+  let text, color;
+  if (val <= 25)      { text = '😱 Extreme Fear';  color = '#ef4444'; }
+  else if (val <= 45) { text = '😨 Fear';           color = '#f97316'; }
+  else if (val <= 55) { text = '😐 Neutral';        color = '#eab308'; }
+  else if (val <= 75) { text = '😊 Greed';          color = '#22c55e'; }
+  else                { text = '🤑 Extreme Greed';  color = '#ef4444'; }
+  if (label) { label.textContent = text; label.style.color = color; }
+  ss('fg-value', 'color', color);
+  ss('fg-bar', 'background', color);
+}
+
+// ============================================================
+// MA200 (estimated)
+// ============================================================
+async function fetchMA200() {
+  try {
+    const r = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1d&limit=200', { signal: AbortSignal.timeout(10000) });
+    const klines = await r.json();
+    const closes = klines.map(k => parseFloat(k[4]));
+    const ma = closes.reduce((s, v) => s + v, 0) / closes.length;
+    state.ma200 = ma;
+    updateMA200UI();
+  } catch(e) {
+    // Rough estimate
+    if (state.btcPrice) {
+      state.ma200 = state.btcPrice * (0.75 + Math.random() * 0.1);
+      updateMA200UI();
+    }
+  }
+}
+
+function updateMA200UI() {
+  const ma = state.ma200;
+  const p = state.btcPrice;
+  if (!ma || !p) return;
+  const pct = ((p - ma) / ma * 100).toFixed(1);
+  const above = p >= ma;
+  const se = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  se('ma200-price', '$' + Math.round(ma).toLocaleString());
+  se('ma200-pct', (pct > 0 ? '+' : '') + pct + '% от MA200');
+  const status = document.getElementById('ma200-status');
+  if (status) {
+    status.textContent = above ? '↑ Above MA200' : '↓ Below MA200';
+    status.className = 'tag ' + (above ? 'tag-green' : 'tag-red');
+  }
+  const hintEl = document.getElementById('ma200-hint');
+  if (hintEl) {
+    if (!above) { hintEl.textContent = '🟢 Под MA200 — исторически добра купувателна зона'; hintEl.style.color = '#22c55e'; }
+    else if (parseFloat(pct) > 50) { hintEl.textContent = '+' + pct + '% над MA200 — повишен риск'; hintEl.style.color = '#ef4444'; }
+    else { hintEl.textContent = '+' + pct + '% над MA200 — нормален бичи пазар'; hintEl.style.color = '#eab308'; }
+  }
+}
+
+// ============================================================
+// RISK SCORE ENGINE
+// ============================================================
+function calcRiskScore() {
+  const p = state.btcPrice;
+  if (!p) return 50;
+
+  const w = state.weights;
+  const total = w.price + w.fg + w.rsi + w.ma;
+
+  // Price vs Anchor component
+  const anchor = state.settings.anchor;
+  let priceScore;
+  if (p >= anchor * 1.5) priceScore = 90;
+  else if (p >= anchor) priceScore = 65;
+  else if (p >= anchor * 0.8) priceScore = 45;
+  else if (p >= anchor * 0.6) priceScore = 30;
+  else priceScore = 15;
+
+  // Fear & Greed component (higher F&G = higher risk)
+  const fg = state.fearGreed || 50;
+  const fgScore = fg;
+
+  // RSI component
+  const rsi = state.rsiValues[state.rsiFrame] || 50;
+  let rsiScore;
+  if (rsi > 75) rsiScore = 85;
+  else if (rsi > 60) rsiScore = 65;
+  else if (rsi < 30) rsiScore = 15;
+  else if (rsi < 40) rsiScore = 30;
+  else rsiScore = 50;
+
+  // MA200 component
+  const ma = state.ma200;
+  let maScore = 50;
+  if (ma && p) {
+    const ratio = p / ma;
+    if (ratio > 1.5) maScore = 85;
+    else if (ratio > 1.2) maScore = 70;
+    else if (ratio > 1.0) maScore = 55;
+    else if (ratio > 0.8) maScore = 35;
+    else maScore = 20;
+  }
+
+  const score = (priceScore * w.price + fgScore * w.fg + rsiScore * w.rsi + maScore * w.ma) / total;
+
+  // SMART SAFETY: require multiple conditions for extreme scores
+  let safetyScore = score;
+  const extremeSignals = [
+    priceScore < 25,
+    fgScore < 25,
+    rsiScore < 25,
+    maScore < 25
+  ].filter(Boolean).length;
+
+  // Only allow very low risk score if multiple indicators agree
+  if (score < 20 && extremeSignals < 2) safetyScore = 20 + (score - 20) * 0.5;
+  if (score > 80 && extremeSignals < 2) safetyScore = 80 - (80 - score) * 0.5;
+
+  return {
+    total: Math.round(Math.max(0, Math.min(100, safetyScore))),
+    price: Math.round(priceScore),
+    fg: Math.round(fgScore),
+    rsi: Math.round(rsiScore),
+    ma: Math.round(maScore),
+    extremeSignals
+  };
+}
+
+function getRiskMultiplier(score) {
+  for (const m of state.riskMultipliers) {
+    if (score >= m.min && score < m.max) return m.mult;
+  }
+  return 1.0;
+}
+
+function getPriceMultiplier(price) {
+  const anchor = state.settings.anchor;
+  if (price >= anchor) return 1.0;
+
+  // Interpolate based on price ranges
+  for (const r of state.priceRanges) {
+    if (price >= r.min && price < r.max) {
+      const t = (price - r.min) / (r.max - r.min);
+      // Interpolate — lower price in range = higher mult
+      return r.mult - t * (r.mult - 1.0) * 0.1;
+    }
+  }
+  // Below all ranges
+  return 1.67;
+}
+
+function calcRecommendation() {
+  const risk = calcRiskScore();
+  const p = state.btcPrice;
+  const base = state.settings.base;
+  const maxBuy = state.settings.maxBuy;
+  const anchor = state.settings.anchor;
+
+  if (!p) return { amount: base, risk: risk.total, riskMult: 1, priceMult: 1 };
+
+  // HARD RULE: above anchor price → always base amount, no multipliers
+  if (p >= anchor) {
+    return { amount: base, risk: risk.total, riskMult: 1, priceMult: 1, effectiveMult: 1, riskDetail: risk };
+  }
+
+  const riskMult = getRiskMultiplier(risk.total);
+  const priceMult = getPriceMultiplier(p);
+
+  // ── BUFFER ZONE: dampen multiplier escalation near the anchor ──
+  // Within bufferPct below the anchor, scale down how much the multiplier
+  // is allowed to deviate from 1.0x — prevents jumps like $54 at $61,900.
+  const bufferPct = state.settings.bufferPct ?? 5; // % below anchor treated as "buffer"
+  const bufferFloor = anchor * (1 - bufferPct / 100);
+  let dampening = 1; // 1 = full multiplier allowed, 0 = fully suppressed to 1.0x
+  if (p >= bufferFloor) {
+    // Linear ramp: at p=anchor → dampening=0 (no boost), at p=bufferFloor → dampening=1 (full boost)
+    dampening = 1 - (p - bufferFloor) / (anchor - bufferFloor);
+  }
+
+  // Smart safety: don't boost if signals conflict
+  let rawMult = riskMult * priceMult;
+  if (risk.extremeSignals < 2 && rawMult > 1.3) rawMult = 1.3;
+  if (risk.extremeSignals < 1 && rawMult > 1.1) rawMult = 1.1;
+
+  // Apply buffer dampening: blend between 1.0x (no boost) and rawMult
+  const effectiveMult = 1 + (rawMult - 1) * dampening;
+
+  let amount = Math.min(base * effectiveMult, maxBuy);
+  amount = Math.max(amount, base);
+  amount = Math.round(amount * 100) / 100;
+
+  return { amount, risk: risk.total, riskMult, priceMult, effectiveMult, dampening, riskDetail: risk };
+}
+
+// ============================================================
+// UI UPDATES
+// ============================================================
+function refreshAll() {
+  updateAnchorUI();
+  updateATHUI();
+  updateRecommendationUI();
+  updateRiskGauge();
+  updatePortfolioUI();
+  updatePurchasesTable();
+  updateNextDCA();
+  updateScores();
+  updateSimulatorUI();
+  updateSimulations();
+  renderCharts();
+}
+
+function updateAnchorUI() {
+  const anchor = state.settings.anchor;
+  const p = state.btcPrice || 0;
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  setEl('anchor-display', '$' + anchor.toLocaleString());
+  setEl('base-amt-display', state.settings.base);
+
+  const status = document.getElementById('anchor-status');
+  if (status) {
+    if (p >= anchor) {
+      status.textContent = '↑ Над котвата';
+      status.className = 'tag tag-green';
+    } else if (p > 0) {
+      const pct = (((anchor - p) / anchor) * 100).toFixed(1);
+      status.textContent = `↓ -${pct}% под котвата`;
+      status.className = 'tag tag-red';
+    } else {
+      status.textContent = 'Зареждане...';
+      status.className = 'tag tag-yellow';
+    }
+  }
+
+  // Extra hint text
+  const hintEl = document.getElementById('anchor-diff-hint');
+  if (hintEl && p > 0) {
+    if (p >= anchor) {
+      hintEl.textContent = `+$${(p - anchor).toLocaleString()} над котвата`;
+      hintEl.style.color = '#22c55e';
+    } else {
+      hintEl.textContent = `-$${(anchor - p).toLocaleString()} до котвата`;
+      hintEl.style.color = '#F7931A';
+    }
+  }
+}
+
+function updateATHUI() {
+  const p = state.btcPrice || 0;
+  const ath = state.ath;
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  setEl('ath-price', '$' + ath.toLocaleString());
+  if (p && ath) {
+    const pct = (((ath - p) / ath) * 100).toFixed(1);
+    const el = document.getElementById('ath-pct');
+    if (el) {
+      el.textContent = '-' + pct + '%';
+      el.style.color = pct > 50 ? '#22c55e' : pct > 30 ? '#eab308' : '#ef4444';
+    }
+    const hintEl = document.getElementById('ath-hint');
+    if (hintEl) {
+      if (pct > 50) { hintEl.textContent = '🟢 Исторически далеч от ATH'; hintEl.style.color = '#22c55e'; }
+      else if (pct > 25) { hintEl.textContent = '🟡 Умерено под ATH'; hintEl.style.color = '#eab308'; }
+      else { hintEl.textContent = '🔴 Близо до ATH — внимание'; hintEl.style.color = '#ef4444'; }
+    }
+  }
+}
+
+function updateRecommendationUI() {
+  const rec = calcRecommendation();
+  const p = state.btcPrice;
+  const anchor = state.settings.anchor;
+  const rsi = state.rsiValues[state.rsiFrame];
+  const fg = state.fearGreed;
+  const ma = state.ma200;
+
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  setEl('rec-amount', '$' + rec.amount.toFixed(2));
+  setEl('rec-base', '$' + state.settings.base);
+  setEl('rec-risk-mult', rec.riskMult.toFixed(2) + 'x');
+  setEl('rec-price-mult', rec.priceMult.toFixed(2) + 'x');
+  setEl('rec-final', '$' + rec.amount.toFixed(2));
+
+  // Next DCA date
+  const purchases = state.purchases;
+  let nextDateStr = '—';
+  if (purchases.length > 0) {
+    const sorted = [...purchases].sort((a,b) => new Date(b.date)-new Date(a.date));
+    const lastDate = new Date(sorted[0].date);
+    lastDate.setDate(lastDate.getDate() + state.settings.period);
+    nextDateStr = lastDate.toLocaleDateString('bg-BG');
+  }
+  setEl('rec-next-date', nextDateStr);
+
+  // Build detailed reasoning
+  const lines = [];
+  if (!p) {
+    lines.push('⏳ Зареждане на цена...');
+  } else if (p >= anchor) {
+    lines.push(`✅ Цената ($${Math.round(p).toLocaleString()}) е НАД котвата ($${anchor.toLocaleString()}) → само базова вноска $${state.settings.base}.`);
+    lines.push('📌 Мултипликаторите са деактивирани над котвата.');
+  } else {
+    const pctBelow = (((anchor - p) / anchor) * 100).toFixed(1);
+    lines.push(`📉 Цената е ${pctBelow}% ПОД котвата → активират се мултипликатори.`);
+    lines.push(`⚓ Ценови мулт.: ${rec.priceMult.toFixed(2)}x (диапазон $${Math.round(p/1000)*1}K)`);
+
+    if (rsi !== null) {
+      const rsiVal = Math.round(rsi);
+      if (rsiVal < 30) lines.push(`📐 RSI ${rsiVal} → Oversold (силен купувателен сигнал)`);
+      else if (rsiVal > 70) lines.push(`📐 RSI ${rsiVal} → Overbought (внимание!)`);
+      else lines.push(`📐 RSI ${rsiVal} → Неутрална зона`);
+    }
+    if (fg !== null) {
+      if (fg < 30) lines.push(`😱 Fear & Greed ${fg} → Extreme Fear (добро за купуване)`);
+      else if (fg > 70) lines.push(`🤑 Fear & Greed ${fg} → Greed (предпазливост)`);
+      else lines.push(`😐 Fear & Greed ${fg} → Неутрален`);
+    }
+    if (ma && p) {
+      const maStatus = p >= ma ? `над MA200 ($${Math.round(ma).toLocaleString()})` : `ПОД MA200 ($${Math.round(ma).toLocaleString()}) — исторически евтино`;
+      lines.push(`📉 Цената е ${maStatus}`);
+    }
+
+    const signals = rec.riskDetail?.extremeSignals || 0;
+    if (signals >= 3) lines.push(`🟢 Smart Safety: ${signals}/4 индикатора потвърждават → пълен мулт. активен`);
+    else if (signals >= 2) lines.push(`🟡 Smart Safety: ${signals}/4 индикатора потвърждават → умерено увеличение`);
+    else lines.push(`⚪ Smart Safety: само ${signals}/4 индикатора → мулт. ограничен до 1.1x за защита`);
+
+    lines.push(`💡 Risk Score: ${rec.risk}/100 → мулт. ${rec.riskMult.toFixed(2)}x`);
+    lines.push(`✅ Финална препоръка: $${state.settings.base} × ${rec.effectiveMult?.toFixed(2) || '1.00'}x = $${rec.amount.toFixed(2)}`);
+  }
+
+  // rec-full-reason (new dashboard card)
+  const fullEl = document.getElementById('rec-full-reason');
+  if (fullEl) fullEl.innerHTML = lines.map(l => `<div style="margin-bottom:3px;">${l}</div>`).join('');
+
+  // rec-reason (old id — keep backward compat)
+  const oldEl = document.getElementById('rec-reason');
+  if (oldEl) oldEl.textContent = lines[0] || '';
+}
+
+function updateRiskGauge() {
+  const risk = calcRiskScore();
+  const score = risk.total;
+  const se = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+
+  se('risk-score-val', score);
+  const labelText = score < 20 ? '🟢 Екстремно подценен' : score < 40 ? '🟢 Подценен' : score < 60 ? '🟡 Неутрален' : score < 80 ? '🔴 Надценен' : '🔴 Екстремно надценен';
+  se('risk-score-label', labelText);
+
+  const breakdown = document.getElementById('risk-breakdown');
+  if (breakdown) breakdown.innerHTML = `
+    <div style="text-align:left;">Цена/Котва: <span class="orange">${risk.price}/100</span></div>
+    <div style="text-align:left;">Fear &amp; Greed: <span class="yellow">${risk.fg}/100</span></div>
+    <div style="text-align:left;">RSI: <span class="green">${risk.rsi}/100</span></div>
+    <div style="text-align:left;">MA200: <span style="color:#a78bfa;">${risk.ma}/100</span></div>
+  `;
+
+  drawGauge('risk-gauge-canvas', score);
+}
+
+function drawGauge(canvasId, value) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H - 10;
+  const r = 70;
+  const startAngle = Math.PI;
+  const endAngle = 2 * Math.PI;
+
+  // Background arc
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startAngle, endAngle);
+  ctx.strokeStyle = '#1e1e2e';
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Color arc
+  const t = value / 100;
+  const angle = startAngle + t * Math.PI;
+  const color = value < 30 ? '#22c55e' : value < 60 ? '#eab308' : '#ef4444';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startAngle, angle);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 14;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Needle
+  const needleAngle = startAngle + t * Math.PI;
+  const nx = cx + (r - 8) * Math.cos(needleAngle);
+  const ny = cy + (r - 8) * Math.sin(needleAngle);
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(nx, ny);
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, cy, 4, 0, 2 * Math.PI);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+}
+
+function updatePortfolioUI() {
+  const p = state.btcPrice || 0;
+  const init = state.portfolio;
+  const newPurchases = state.purchases;
+
+  const newBTC = newPurchases.reduce((s, x) => s + (parseFloat(x.btc) || 0), 0);
+  const newUSD = newPurchases.reduce((s, x) => s + (parseFloat(x.usd) || 0), 0);
+
+  const totalBTC = (parseFloat(init.btc) || 0) + newBTC;
+  const totalUSD = (parseFloat(init.usd) || 0) + newUSD;
+  const totalAvg = totalBTC > 0 ? totalUSD / totalBTC : 0;
+  const totalValue = totalBTC * p;
+  const totalPnL = totalValue - totalUSD;
+  const totalROI = totalUSD > 0 ? (totalPnL / totalUSD) * 100 : 0;
+
+  const fmt = v => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const fmtBTC = v => v.toFixed(6);
+  const fmtPct = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+
+  // Portfolio page
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('total-btc', fmtBTC(totalBTC));
+  set('total-invested', fmt(totalUSD));
+  set('total-avg', fmt(totalAvg));
+  set('total-value', fmt(totalValue));
+  set('total-pnl', fmt(totalPnL));
+  set('total-roi', fmtPct(totalROI));
+
+  const pnlEl = document.getElementById('total-pnl');
+  const roiEl = document.getElementById('total-roi');
+  if (pnlEl) pnlEl.style.color = totalPnL >= 0 ? '#22c55e' : '#ef4444';
+  if (roiEl) roiEl.style.color = totalROI >= 0 ? '#22c55e' : '#ef4444';
+
+  // Dashboard quick view
+  set('pf-btc', fmtBTC(totalBTC));
+  set('pf-usd', fmt(totalUSD));
+  set('pf-avg', fmt(totalAvg));
+  set('pf-value', fmt(totalValue));
+  set('pf-profit', fmt(totalPnL));
+  set('pf-roi', fmtPct(totalROI));
+
+  const pfPnlEl = document.getElementById('pf-profit');
+  const pfRoiEl = document.getElementById('pf-roi');
+  if (pfPnlEl) pfPnlEl.style.color = totalPnL >= 0 ? '#22c55e' : '#ef4444';
+  if (pfRoiEl) pfRoiEl.style.color = totalROI >= 0 ? '#22c55e' : '#ef4444';
+
+  // Purchases summary
+  const el = document.getElementById('purchases-summary');
+  if (el) el.textContent = `${newPurchases.length} покупки · $${newUSD.toFixed(0)} вложени · ${newBTC.toFixed(6)} BTC`;
+}
+
+function updatePurchasesTable() {
+  const tbody = document.getElementById('purchases-tbody');
+  if (!tbody) return;
+  const p = state.btcPrice || 0;
+  const anchor = state.settings.anchor;
+
+  // Update analytics panel
+  const newP = state.purchases;
+  if (newP.length > 0) {
+    const totalBTC = newP.reduce((s, x) => s + (parseFloat(x.btc) || 0), 0);
+    const totalUSD = newP.reduce((s, x) => s + (parseFloat(x.usd) || 0), 0);
+    const avgPrice = totalBTC > 0 ? totalUSD / totalBTC : 0;
+    const curValue = totalBTC * p;
+    const pnl = curValue - totalUSD;
+    const roi = totalUSD > 0 ? pnl / totalUSD * 100 : 0;
+    const avgBuy = newP.length > 0 ? totalUSD / newP.length : 0;
+    const belowAnchor = newP.filter(x => parseFloat(x.price) < anchor).length;
+    const belowPct = (belowAnchor / newP.length * 100).toFixed(0);
+    const sorted = [...newP].sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+    const best = sorted[0];
+    const worst = sorted[sorted.length - 1];
+
+    // Average interval
+    const dates = [...newP].sort((a,b) => new Date(a.date)-new Date(b.date)).map(x => new Date(x.date));
+    let avgInterval = '—';
+    if (dates.length > 1) {
+      const diffs = dates.slice(1).map((d,i) => (d - dates[i]) / 86400000);
+      avgInterval = (diffs.reduce((s,v) => s+v, 0) / diffs.length).toFixed(1) + ' дни';
+    }
+
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    const fmtU = v => '$' + Math.round(v).toLocaleString();
+    const fmtB = v => v.toFixed(6);
+    const fmtPct = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+
+    set('pa-count', newP.length);
+    set('pa-usd', fmtU(totalUSD));
+    set('pa-btc', fmtB(totalBTC));
+    set('pa-avg', fmtU(avgPrice));
+    set('pa-value', fmtU(curValue));
+    set('pa-pnl', fmtU(pnl));
+    set('pa-roi', fmtPct(roi));
+    set('pa-avg-buy', fmtU(avgBuy));
+    set('pa-below-anchor', belowAnchor + ' (' + belowPct + '%)');
+    set('pa-best', best ? '$' + parseFloat(best.price).toLocaleString() : '—');
+    set('pa-worst', worst ? '$' + parseFloat(worst.price).toLocaleString() : '—');
+    set('pa-interval', avgInterval);
+
+    const pnlEl = document.getElementById('pa-pnl');
+    const roiEl = document.getElementById('pa-roi');
+    if (pnlEl) pnlEl.style.color = pnl >= 0 ? '#22c55e' : '#ef4444';
+    if (roiEl) roiEl.style.color = roi >= 0 ? '#22c55e' : '#ef4444';
+  }
+
+  if (state.purchases.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#6b7280;padding:32px;">Няма покупки. Добавете първата!</td></tr>';
+    return;
+  }
+
+  const sortDir = document.getElementById('purchases-sort')?.value || 'asc';
+  const sorted = [...state.purchases].sort((a, b) => {
+    const diff = new Date(a.date) - new Date(b.date);
+    return sortDir === 'asc' ? diff : -diff;
+  });
+
+  tbody.innerHTML = sorted.map((pur, i) => {
+    const origIdx = state.purchases.indexOf(pur);
+    const price = parseFloat(pur.price);
+    const btc = parseFloat(pur.btc);
+    const usd = parseFloat(pur.usd);
+    const curVal = btc * p;
+    const pnl = curVal - usd;
+    const roi = usd > 0 ? pnl / usd * 100 : 0;
+    const vsAnchor = anchor > 0 ? ((price - anchor) / anchor * 100) : 0;
+    const belowTag = price < anchor
+      ? `<span class="tag tag-green">-${Math.abs(vsAnchor).toFixed(1)}%</span>`
+      : `<span class="tag tag-red">+${vsAnchor.toFixed(1)}%</span>`;
+    const pnlColor = pnl >= 0 ? '#22c55e' : '#ef4444';
+    const rowNum = sortDir === 'asc' ? i + 1 : sorted.length - i;
+    return `<tr>
+      <td style="color:#6b7280;">${rowNum}</td>
+      <td style="white-space:nowrap;">${pur.date}</td>
+      <td style="font-weight:600;">$${price.toLocaleString()}</td>
+      <td class="orange">${btc.toFixed(6)}</td>
+      <td>$${usd.toFixed(2)}</td>
+      <td style="color:#22c55e;">$${Math.round(curVal).toLocaleString()}</td>
+      <td style="color:${pnlColor};font-weight:600;">${pnl >= 0 ? '+' : ''}$${Math.round(pnl).toLocaleString()}</td>
+      <td style="color:${pnlColor};">${roi >= 0 ? '+' : ''}${roi.toFixed(1)}%</td>
+      <td>${belowTag}</td>
+      <td style="color:#22c55e;">$${pur.rec ? parseFloat(pur.rec).toFixed(2) : '—'}</td>
+      <td style="color:#6b7280;font-size:0.78rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${pur.note || '—'}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-secondary" style="padding:3px 8px;font-size:0.72rem;margin-right:4px;" onclick="editPurchase(${origIdx})">✏️</button>
+        <button class="btn btn-danger" style="padding:3px 8px;font-size:0.72rem;" onclick="deletePurchase(${origIdx})">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function updateNextDCA() {
+  const purchases = state.purchases;
+  const period = state.settings.period;
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  let lastDate = null;
+  if (purchases.length > 0) {
+    const sorted = [...purchases].sort((a, b) => new Date(b.date) - new Date(a.date));
+    lastDate = new Date(sorted[0].date);
+  }
+  const today = new Date();
+  if (lastDate) {
+    const nextDate = new Date(lastDate);
+    nextDate.setDate(nextDate.getDate() + period);
+    const daysLeft = Math.ceil((nextDate - today) / 86400000);
+    setEl('next-dca-date', nextDate.toLocaleDateString('bg-BG'));
+    const daysEl = document.getElementById('days-left');
+    if (daysEl) {
+      daysEl.textContent = Math.max(0, daysLeft);
+      daysEl.style.color = daysLeft <= 1 ? '#22c55e' : '#F7931A';
+    }
+    setEl('last-purchase-date', lastDate.toLocaleDateString('bg-BG'));
+  } else {
+    setEl('next-dca-date', 'Добавете покупка');
+    setEl('days-left', '—');
+    setEl('last-purchase-date', '—');
+  }
+  setEl('total-purchases', purchases.length);
+}
+
+function updateScores() {
+  const p = state.btcPrice || 0;
+  const init = state.portfolio;
+  const newPurchases = state.purchases;
+  const totalBTC = (parseFloat(init.btc) || 0) + newPurchases.reduce((s, x) => s + (parseFloat(x.btc) || 0), 0);
+  const totalUSD = (parseFloat(init.usd) || 0) + newPurchases.reduce((s, x) => s + (parseFloat(x.usd) || 0), 0);
+  const totalValue = totalBTC * p;
+  const roi = totalUSD > 0 ? ((totalValue - totalUSD) / totalUSD) * 100 : 0;
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  // Portfolio Health Score
+  const healthScore = Math.min(100, Math.max(0, 50 + roi * 0.5));
+  setEl('health-score', Math.round(healthScore));
+  const hBar = document.getElementById('health-bar');
+  if (hBar) hBar.style.width = healthScore + '%';
+  const hEl = document.getElementById('health-score');
+  if (hEl) hEl.style.color = healthScore > 60 ? '#22c55e' : healthScore > 40 ? '#eab308' : '#ef4444';
+
+  // DCA Efficiency
+  const avgBuyPrice = totalUSD > 0 && totalBTC > 0 ? totalUSD / totalBTC : 0;
+  const firstPurchasePrice = newPurchases.length > 0
+    ? parseFloat([...newPurchases].sort((a, b) => new Date(a.date) - new Date(b.date))[0].price)
+    : avgBuyPrice;
+  let dcaScore = 50;
+  if (firstPurchasePrice > 0 && avgBuyPrice > 0) {
+    const improvement = ((firstPurchasePrice - avgBuyPrice) / firstPurchasePrice) * 100;
+    dcaScore = Math.min(100, Math.max(0, 50 + improvement * 2));
+  }
+  setEl('dca-score', Math.round(dcaScore));
+  const dBar = document.getElementById('dca-bar');
+  if (dBar) dBar.style.width = dcaScore + '%';
+
+  // BTC Accumulation Score (toward 0.1 BTC)
+  const accumScore = Math.min(100, (totalBTC / 0.1) * 100);
+  setEl('accum-score', Math.round(accumScore));
+  const aBar = document.getElementById('accum-bar');
+  if (aBar) aBar.style.width = Math.min(100, accumScore) + '%';
+
+  // Market Status
+  const risk = calcRiskScore();
+  let marketStatus = '—', marketDetail = '—';
+  if (risk.total < 20)      { marketStatus = '🟢 Extreme Opportunity'; marketDetail = 'Редки покупателни условия'; }
+  else if (risk.total < 40) { marketStatus = '🟢 Undervalued'; marketDetail = 'Добър момент за DCA'; }
+  else if (risk.total < 60) { marketStatus = '🟡 Fair Value'; marketDetail = 'Нормален пазар'; }
+  else if (risk.total < 80) { marketStatus = '🔴 Overvalued'; marketDetail = 'Пазарна еуфория'; }
+  else                       { marketStatus = '🔴 Extreme Greed'; marketDetail = 'Исторически надценен'; }
+  setEl('market-status', marketStatus);
+  setEl('market-detail', marketDetail);
+
+  // Risk safety note on gauge card
+  const safetyEl = document.getElementById('risk-safety-note');
+  if (safetyEl) {
+    const signals = risk.extremeSignals || 0;
+    safetyEl.textContent = `Smart Safety: ${signals}/4 индикатора потвърждават. ${signals < 2 ? 'Мулт. ограничен.' : 'Мулт. активен.'}`;
+    safetyEl.style.color = signals >= 2 ? '#22c55e' : '#6b7280';
+  }
+}
+
+function updateSimulatorUI() {
+  const sliderVal = parseFloat(document.getElementById('sim-price-slider')?.value || 100000);
+  const totalBTC = (parseFloat(state.portfolio.btc) || 0) + state.purchases.reduce((s, x) => s + (parseFloat(x.btc) || 0), 0);
+  const totalUSD = (parseFloat(state.portfolio.usd) || 0) + state.purchases.reduce((s, x) => s + (parseFloat(x.usd) || 0), 0);
+
+  const futureValue = totalBTC * sliderVal;
+  const profit = futureValue - totalUSD;
+  const roi = totalUSD > 0 ? (profit / totalUSD) * 100 : 0;
+  const mult = totalUSD > 0 ? futureValue / totalUSD : 0;
+
+  const fmt = v => '$' + Math.round(v).toLocaleString();
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('sim-value', fmt(futureValue));
+  set('sim-profit', fmt(profit));
+  set('sim-roi', roi.toFixed(1) + '%');
+  set('sim-mult', mult.toFixed(2) + 'x');
+  set('sim-price-label', '$' + sliderVal.toLocaleString());
+}
+
+function updateSimulator() { updateSimulatorUI(); }
+function setSimPrice(p) {
+  const s = document.getElementById('sim-price-slider');
+  if (s) s.value = p;
+  updateSimulatorUI();
+}
+
+// ============================================================
+// SIMULATIONS
+// ============================================================
+function updateSimulations() {
+  updateLumpSumComparison();
+  updateStrategyComparison();
+}
+
+function updateLumpSumComparison() {
+  const grid = document.getElementById('lumpsum-grid');
+  if (!grid) return;
+  const p = state.btcPrice || 65000;
+  const periods = [
+    { label: '3 месеца', months: 3 },
+    { label: '6 месеца', months: 6 },
+    { label: '12 месеца', months: 12 }
+  ];
+
+  grid.innerHTML = periods.map(period => {
+    const days = period.months * 30;
+    const daysPerBuy = state.settings.period;
+    const buyCount = Math.floor(days / daysPerBuy);
+    const buyAmount = state.settings.base;
+    const totalDCA = buyCount * buyAmount;
+
+    // Simulate price trend (simplified - use geometric random walk approximation)
+    const avgPrice = p * (0.85 + Math.random() * 0.3); // rough historical average
+    const dcaBTC = buyCount * (buyAmount / avgPrice);
+    const lumpBTC = totalDCA / p; // lump sum at today's price
+
+    const dcaValue = dcaBTC * p;
+    const lumpValue = lumpBTC * p;
+    const dcaROI = ((dcaValue - totalDCA) / totalDCA * 100).toFixed(1);
+    const lumpROI = ((lumpValue - totalDCA) / totalDCA * 100).toFixed(1);
+
+    return `<div class="card2">
+      <div style="font-size:0.9rem;font-weight:700;color:#F7931A;margin-bottom:12px;">${period.label}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="background:#0f0f1a;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:0.7rem;color:#6b7280;margin-bottom:4px;">💰 Lump Sum</div>
+          <div style="font-size:0.9rem;font-weight:700;">$${Math.round(lumpValue).toLocaleString()}</div>
+          <div style="font-size:0.75rem;color:#6b7280;">${lumpBTC.toFixed(5)} BTC</div>
+          <div style="font-size:0.8rem;" style="color:${lumpROI >= 0 ? '#22c55e' : '#ef4444'}">${lumpROI}% ROI</div>
+        </div>
+        <div style="background:#0a1a0a;border-radius:8px;padding:10px;text-align:center;border:1px solid #22c55e33;">
+          <div style="font-size:0.7rem;color:#6b7280;margin-bottom:4px;">📈 DCA</div>
+          <div style="font-size:0.9rem;font-weight:700;color:#22c55e;">$${Math.round(dcaValue).toLocaleString()}</div>
+          <div style="font-size:0.75rem;color:#6b7280;">${dcaBTC.toFixed(5)} BTC</div>
+          <div style="font-size:0.8rem;color:#22c55e;">${dcaROI}% ROI</div>
+        </div>
+      </div>
+      <div style="font-size:0.72rem;color:#6b7280;margin-top:8px;text-align:center;">
+        ${buyCount} покупки × $${buyAmount} = $${totalDCA} вложени
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStrategyComparison() {
+  const grid = document.getElementById('strategy-grid');
+  if (!grid) return;
+  const p = state.btcPrice || 65000;
+  const purchases = [...state.purchases].sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (purchases.length === 0) {
+    grid.innerHTML = '<div class="card2" style="grid-column:1/-1;text-align:center;color:#6b7280;padding:24px;">Добавете покупки за симулация.</div>';
+    return;
+  }
+
+  // Fixed DCA simulation
+  let fixedBTC = 0, fixedUSD = 0;
+  purchases.forEach(pur => {
+    const fixedAmount = state.settings.base;
+    fixedBTC += fixedAmount / parseFloat(pur.price);
+    fixedUSD += fixedAmount;
+  });
+
+  // Dynamic DCA (using actual purchases or simulated rec amounts)
+  let dynBTC = 0, dynUSD = 0;
+  purchases.forEach(pur => {
+    const usd = parseFloat(pur.usd) || state.settings.base;
+    dynBTC += usd / parseFloat(pur.price);
+    dynUSD += usd;
+  });
+
+  const fmtUSD = v => '$' + Math.round(v).toLocaleString();
+  const roi = (value, inv) => inv > 0 ? ((value - inv) / inv * 100).toFixed(1) + '%' : '0%';
+
+  grid.innerHTML = `
+    <div class="card2">
+      <div style="font-size:0.95rem;font-weight:700;color:#6b7280;margin-bottom:12px;">📌 Fixed DCA ($${state.settings.base} всеки ${state.settings.period} дни)</div>
+      <div class="kpi-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Вложени</div><div style="font-weight:700;">${fmtUSD(fixedUSD)}</div></div>
+        <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">BTC</div><div style="font-weight:700;color:#F7931A;">${fixedBTC.toFixed(6)}</div></div>
+        <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Стойност</div><div style="font-weight:700;color:#22c55e;">${fmtUSD(fixedBTC * p)}</div></div>
+        <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">ROI</div><div style="font-weight:700;">${roi(fixedBTC * p, fixedUSD)}</div></div>
+      </div>
+    </div>
+    <div class="card2" style="border:1px solid #22c55e44;">
+      <div style="font-size:0.95rem;font-weight:700;color:#22c55e;margin-bottom:12px;">🎯 Dynamic DCA (Risk-based)</div>
+      <div class="kpi-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Вложени</div><div style="font-weight:700;">${fmtUSD(dynUSD)}</div></div>
+        <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">BTC</div><div style="font-weight:700;color:#F7931A;">${dynBTC.toFixed(6)}</div></div>
+        <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">Стойност</div><div style="font-weight:700;color:#22c55e;">${fmtUSD(dynBTC * p)}</div></div>
+        <div class="kpi-box"><div style="font-size:0.7rem;color:#6b7280;">ROI</div><div style="font-weight:700;">${roi(dynBTC * p, dynUSD)}</div></div>
+      </div>
+      <div style="font-size:0.75rem;color:#22c55e;margin-top:8px;">
+        ${dynBTC > fixedBTC ? `+${((dynBTC/fixedBTC - 1)*100).toFixed(1)}% повече BTC спрямо Fixed DCA` : 'Данните от реални покупки'}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+function renderCharts() {
+  renderDashChart();
+  if (document.getElementById('page-charts').classList.contains('active')) {
+    renderAllCharts();
+  }
+  if (document.getElementById('page-simulations').classList.contains('active')) {
+    renderSimChart();
+  }
+}
+
+function getChartData() {
+  const purchases = [...state.purchases].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const initBTC = parseFloat(state.portfolio.btc) || 0;
+  const initUSD = parseFloat(state.portfolio.usd) || 0;
+  const p = state.btcPrice || 65000;
+  const anchor = state.settings.anchor;
+
+  let cumBTC = initBTC, cumUSD = initUSD;
+  let newBTC = 0, newUSD = 0;
+  const labels = [], btcData = [], usdData = [], avgData = [], pnlData = [], roiData = [], recData = [];
+  const newBTCData = [], newAvgData = [], perBuyUSD = [], vsAnchorData = [], btcPerDollar = [], costBasisData = [], buyPrices = [], riskScoreData = [];
+
+  purchases.forEach(pur => {
+    const purBTC = parseFloat(pur.btc) || 0;
+    const purUSD = parseFloat(pur.usd) || 0;
+    const purPrice = parseFloat(pur.price) || p;
+    cumBTC += purBTC;
+    cumUSD += purUSD;
+    newBTC += purBTC;
+    newUSD += purUSD;
+
+    const avg = cumBTC > 0 ? cumUSD / cumBTC : 0;
+    const newAvg = newBTC > 0 ? newUSD / newBTC : 0;
+    const value = cumBTC * p;
+
+    labels.push(pur.date);
+    btcData.push(+cumBTC.toFixed(6));
+    usdData.push(+cumUSD.toFixed(2));
+    avgData.push(+avg.toFixed(0));
+    pnlData.push(+(value - cumUSD).toFixed(2));
+    roiData.push(cumUSD > 0 ? +((value - cumUSD) / cumUSD * 100).toFixed(2) : 0);
+    recData.push(+(parseFloat(pur.rec) || state.settings.base));
+
+    // New-only tracking
+    newBTCData.push(+newBTC.toFixed(6));
+    newAvgData.push(+newAvg.toFixed(0));
+
+    // Per-purchase metrics
+    perBuyUSD.push(+purUSD.toFixed(2));
+    vsAnchorData.push(+((purPrice - anchor) / anchor * 100).toFixed(2));
+    btcPerDollar.push(purUSD > 0 ? +(purBTC / purUSD * 1000).toFixed(6) : 0); // satoshis per dollar × scaled
+    costBasisData.push(+newAvg.toFixed(0));
+    buyPrices.push(+purPrice.toFixed(0));
+
+    // Approximate the Risk Score that was likely active at purchase time,
+    // derived purely from price vs anchor (the only thing we can reconstruct
+    // retroactively, since live RSI/F&G/MA200 at that exact past moment aren't stored).
+    let approxRisk;
+    if (purPrice >= anchor * 1.5) approxRisk = 90;
+    else if (purPrice >= anchor) approxRisk = 65;
+    else if (purPrice >= anchor * 0.8) approxRisk = 45;
+    else if (purPrice >= anchor * 0.6) approxRisk = 30;
+    else approxRisk = 15;
+    riskScoreData.push(approxRisk);
+  });
+
+  return { labels, btcData, usdData, avgData, pnlData, roiData, recData, newBTCData, newAvgData, perBuyUSD, vsAnchorData, btcPerDollar, costBasisData, buyPrices, riskScoreData };
+}
+
+// ── Shared chart base options ──────────────────────────────
+function baseOptions(yLabel, yFormatter, extraPlugins) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+      tooltip: {
+        backgroundColor: '#16161f',
+        borderColor: '#2d2d3d',
+        borderWidth: 1,
+        titleColor: '#e2e8f0',
+        bodyColor: '#9ca3af',
+        padding: 10,
+        callbacks: {
+          label: ctx => {
+            const raw = ctx.parsed.y;
+            return '  ' + ctx.dataset.label + ': ' + (yFormatter ? yFormatter(raw) : raw);
+          }
+        },
+        ...((extraPlugins && extraPlugins.tooltip) || {})
+      },
+      ...(extraPlugins || {})
+    },
+    scales: {
+      x: {
+        grid: { color: '#1e1e2e' },
+        ticks: { color: '#6b7280', font: { size: 10 }, maxTicksLimit: 8, maxRotation: 30 }
+      },
+      y: {
+        grid: { color: '#1e1e2e' },
+        ticks: {
+          color: '#6b7280',
+          font: { size: 10 },
+          callback: yFormatter || (v => v)
+        },
+        title: yLabel ? { display: true, text: yLabel, color: '#6b7280', font: { size: 10 } } : { display: false }
+      }
+    }
+  };
+}
+
+// formatters
+const fmtBTC  = v => v.toFixed(6) + ' ₿';
+const fmtUSD  = v => '$' + Math.round(v).toLocaleString('en-US');
+const fmtPct  = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+const fmtDollar = v => '$' + parseFloat(v).toFixed(2);
+
+// dataset helpers
+function lineDS(label, data, color, opts) {
+  return { type: 'line', label, data, borderColor: color, backgroundColor: color + '22',
+    fill: opts?.fill ?? false, tension: 0.4, pointRadius: opts?.pointRadius ?? 3,
+    pointHoverRadius: 6, borderWidth: 2, borderDash: opts?.dash || [], ...(opts || {}) };
+}
+function refLineDS(label, data, color) {
+  return { type: 'line', label, data, borderColor: color, borderDash: [6, 4],
+    borderWidth: 1.5, pointRadius: 0, fill: false, tension: 0 };
+}
+
+function makeChart(id, config) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  if (charts[id]) { charts[id].destroy(); }
+  charts[id] = new Chart(canvas, config);
+}
+
+// ── Dashboard mini chart ──────────────────────────────────
+function renderDashChart() {
+  const { labels, btcData, usdData } = getChartData();
+  if (labels.length < 2) return;
+  const p = state.btcPrice || 65000;
+  const valueData = btcData.map(b => +(b * p).toFixed(2));
+  makeChart('dash-chart', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { ...lineDS('Стойност на BTC ₿ в $', valueData, '#F7931A', { fill: true }), yAxisID: 'y' },
+        { ...refLineDS('Вложени $', usdData, '#6b7280'), yAxisID: 'y' }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        ...baseOptions().plugins,
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: {
+            label: ctx => {
+              const raw = ctx.parsed.y;
+              return '  ' + ctx.dataset.label + ': ' + fmtUSD(raw);
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── All 16 charts ──────────────────────────────────────────
+function renderAllCharts() {
+  const d = getChartData();
+  const sortedP = [...state.purchases].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  // Chart.js needs canvases to have non-zero size to render correctly.
+  // Temporarily force all chart-group containers visible during creation,
+  // then restore whichever group the user actually had selected.
+  const groupIds = ['cg-accumulation', 'cg-performance', 'cg-strategy', 'cg-market'];
+  const previousDisplay = {};
+  groupIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      previousDisplay[id] = el.style.display;
+      el.style.display = 'grid';
+    }
+  });
+
+  if (d.labels.length < 2) {
+    ['chart-btc','chart-usd','chart-avg','chart-pnl','chart-roi','chart-compare','chart-monthly','chart-recommendation',
+     'chart-btc-new','chart-avg-new','chart-usd-per-buy','chart-risk-history','chart-buy-prices','chart-vs-anchor',
+     'chart-btc-per-dollar','chart-cost-basis','chart-value-vs-invested']
+      .forEach(id => {
+        const c = document.getElementById(id);
+        if (!c) return;
+        const ctx = c.getContext('2d');
+        ctx.clearRect(0,0,c.width,c.height);
+        ctx.fillStyle = '#6b7280';
+        ctx.font = '13px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Добавете поне 2 покупки за графика', c.width/2, c.height/2);
+      });
+    // Restore group visibility even on early return
+    groupIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && previousDisplay[id] !== undefined) {
+        el.style.display = previousDisplay[id];
+      }
+    });
+    return;
+  }
+
+  const p = state.btcPrice || 65000;
+  const anchor = state.settings.anchor;
+
+  // 0. Стойност на портфолиото vs Вложени $ (Performance group copy of dash chart)
+  const valueData0 = d.btcData.map(b => +(b * p).toFixed(2));
+  makeChart('chart-value-vs-invested', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Текуща стойност ($)', valueData0, '#F7931A', { fill: true }) },
+        { ...refLineDS('Вложени $', d.usdData, '#6b7280') }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 1. BTC натрупване — линия, Y ос в ₿ с 6 десетични
+  makeChart('chart-btc', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Натрупани BTC', d.btcData, '#F7931A', { fill: true }) }
+      ]
+    },
+    options: {
+      ...baseOptions('BTC', fmtBTC),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtBTC(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 2. Вложени USD — линия (кумулативна), Y в $
+  makeChart('chart-usd', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Вложени USD (кумулативно)', d.usdData, '#6b7280', { fill: true }) }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 3. Средна цена vs Текуща цена vs Котва
+  makeChart('chart-avg', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Средна цена на покупка', d.avgData, '#a78bfa') },
+        { ...refLineDS('Текуща цена BTC', d.labels.map(() => Math.round(p)), '#F7931A') },
+        { ...refLineDS('Котва $' + anchor.toLocaleString(), d.labels.map(() => anchor), '#eab308') }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 4. Печалба/Загуба $ — линия с цветна зона
+  const pnlColors = d.pnlData.map(v => v >= 0 ? '#22c55e' : '#ef4444');
+  makeChart('chart-pnl', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: 'Нереализирана П/З ($)',
+          data: d.pnlData,
+          borderColor: d.pnlData[d.pnlData.length - 1] >= 0 ? '#22c55e' : '#ef4444',
+          backgroundColor: d.pnlData[d.pnlData.length - 1] >= 0 ? '#22c55e22' : '#ef444422',
+          fill: true, tension: 0.4, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2,
+          segment: {
+            borderColor: ctx => ctx.p1.parsed.y >= 0 ? '#22c55e' : '#ef4444',
+            backgroundColor: ctx => ctx.p1.parsed.y >= 0 ? '#22c55e22' : '#ef444422'
+          }
+        },
+        { ...refLineDS('Нулева линия', d.labels.map(() => 0), '#ffffff33') }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 5. ROI % — линия с нулева референция
+  makeChart('chart-roi', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: 'ROI %',
+          data: d.roiData,
+          borderColor: '#22c55e',
+          backgroundColor: '#22c55e22',
+          fill: true, tension: 0.4, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2,
+          segment: {
+            borderColor: ctx => ctx.p1.parsed.y >= 0 ? '#22c55e' : '#ef4444',
+            backgroundColor: ctx => ctx.p1.parsed.y >= 0 ? '#22c55e22' : '#ef444422'
+          }
+        },
+        { ...refLineDS('0%', d.labels.map(() => 0), '#ffffff33') }
+      ]
+    },
+    options: {
+      ...baseOptions('%', fmtPct),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtPct(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 6. Dynamic vs Fixed DCA — BTC в ₿
+  const fixedBTCCum = [], dynBTCCum = [];
+  let fb = parseFloat(state.portfolio.btc) || 0, db = parseFloat(state.portfolio.btc) || 0;
+  sortedP.forEach(pur => {
+    fb += state.settings.base / parseFloat(pur.price);
+    db += (parseFloat(pur.usd) || state.settings.base) / parseFloat(pur.price);
+    fixedBTCCum.push(+fb.toFixed(6));
+    dynBTCCum.push(+db.toFixed(6));
+  });
+  makeChart('chart-compare', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Dynamic DCA (₿)', dynBTCCum, '#22c55e', { fill: true }) },
+        { ...lineDS('Fixed DCA $' + state.settings.base + ' (₿)', fixedBTCCum, '#6b7280', { dash: [6,4] }) }
+      ]
+    },
+    options: {
+      ...baseOptions('BTC', fmtBTC),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtBTC(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 7. BTC по месеци — линия (кумулативна по месец)
+  const monthlyMap = {};
+  sortedP.forEach(pur => {
+    const m = pur.date.slice(0, 7);
+    monthlyMap[m] = (monthlyMap[m] || 0) + (parseFloat(pur.btc) || 0);
+  });
+  const months = Object.keys(monthlyMap).sort();
+  const monthlyBTC = months.map(m => +monthlyMap[m].toFixed(6));
+  makeChart('chart-monthly', {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        { ...lineDS('BTC купени / месец', monthlyBTC, '#F7931A', { fill: true }) }
+      ]
+    },
+    options: {
+      ...baseOptions('BTC', fmtBTC),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtBTC(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 8. Препоръчителна вноска история — линия + референция база
+  makeChart('chart-recommendation', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Препоръчана вноска ($)', d.recData, '#22c55e', { fill: true }) },
+        { ...refLineDS('Базова $' + state.settings.base, d.labels.map(() => state.settings.base), '#F7931A') },
+        { ...refLineDS('Максимум $' + state.settings.maxBuy, d.labels.map(() => state.settings.maxBuy), '#ef4444') }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtDollar),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': $' + parseFloat(ctx.parsed.y).toFixed(2) }
+        }
+      }
+    }
+  });
+
+  // 9. BTC само от нови DCA покупки
+  makeChart('chart-btc-new', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Нови BTC (само DCA)', d.newBTCData, '#22c55e', { fill: true }) }
+      ]
+    },
+    options: {
+      ...baseOptions('BTC', fmtBTC),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtBTC(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 10. Средна цена (нови) vs Текуща цена
+  makeChart('chart-avg-new', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Средна цена (нови покупки)', d.newAvgData, '#a78bfa') },
+        { ...refLineDS('Текуща цена BTC', d.labels.map(() => Math.round(p)), '#F7931A') }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 11. Размер на всяка вноска ($) — per-purchase USD bars-as-line
+  makeChart('chart-usd-per-buy', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('USD вложени при покупка', d.perBuyUSD, '#F7931A', { fill: true, pointRadius: 4 }) },
+        { ...refLineDS('Базова $' + state.settings.base, d.labels.map(() => state.settings.base), '#6b7280') }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtDollar),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': $' + parseFloat(ctx.parsed.y).toFixed(2) }
+        }
+      }
+    }
+  });
+
+  // 12. Risk Score при всяка покупка (приблизителна реконструкция от цена/котва)
+  makeChart('chart-risk-history', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: 'Risk Score (прибл.)',
+          data: d.riskScoreData,
+          borderColor: '#a78bfa', backgroundColor: '#a78bfa22',
+          fill: true, tension: 0.4, pointRadius: 4, pointHoverRadius: 7, borderWidth: 2,
+          segment: {
+            borderColor: ctx => ctx.p1.parsed.y < 40 ? '#22c55e' : ctx.p1.parsed.y > 70 ? '#ef4444' : '#eab308'
+          }
+        },
+        { ...refLineDS('Граница "добре" (40)', d.labels.map(() => 40), '#22c55e') },
+        { ...refLineDS('Граница "внимание" (70)', d.labels.map(() => 70), '#ef4444') }
+      ]
+    },
+    options: {
+      ...baseOptions('Risk Score', v => Math.round(v)),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + Math.round(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 13. Цена на покупка vs Котва ($62K) — scatter-style line with point coloring
+  makeChart('chart-buy-prices', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: 'Цена при покупка',
+          data: d.buyPrices,
+          borderColor: '#F7931A', backgroundColor: '#F7931A22',
+          fill: false, tension: 0, borderWidth: 1.5,
+          pointRadius: 5, pointHoverRadius: 8,
+          pointBackgroundColor: d.buyPrices.map(price => price < anchor ? '#F7931A' : '#6b7280'),
+          pointBorderColor: d.buyPrices.map(price => price < anchor ? '#F7931A' : '#6b7280')
+        },
+        { ...refLineDS('Котва $' + anchor.toLocaleString(), d.labels.map(() => anchor), '#eab308') }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 14. % разлика от котвата при всяка покупка
+  makeChart('chart-vs-anchor', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        {
+          label: '% от котвата',
+          data: d.vsAnchorData,
+          borderColor: '#22c55e', backgroundColor: '#22c55e22',
+          fill: true, tension: 0, pointRadius: 4, pointHoverRadius: 7, borderWidth: 2,
+          segment: {
+            borderColor: ctx => ctx.p1.parsed.y <= 0 ? '#22c55e' : '#ef4444',
+            backgroundColor: ctx => ctx.p1.parsed.y <= 0 ? '#22c55e22' : '#ef444422'
+          }
+        },
+        { ...refLineDS('Котва (0%)', d.labels.map(() => 0), '#eab308') }
+      ]
+    },
+    options: {
+      ...baseOptions('%', fmtPct),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtPct(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // 15. BTC получени за $1 — ефективност
+  makeChart('chart-btc-per-dollar', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('mBTC за $1 (×1000)', d.btcPerDollar, '#FFD700', { fill: true, pointRadius: 4 }) }
+      ]
+    },
+    options: {
+      ...baseOptions('mBTC / $1', v => v.toFixed(4)),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(4) }
+        }
+      }
+    }
+  });
+
+  // 16. Cost Basis — как средната цена (само нови) се е движила
+  makeChart('chart-cost-basis', {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [
+        { ...lineDS('Cost Basis (средна нови)', d.costBasisData, '#a78bfa', { fill: true }) },
+        { ...refLineDS('Текуща цена BTC', d.labels.map(() => Math.round(p)), '#F7931A') }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+
+  // Restore whichever group visibility was active before we forced them all visible
+  groupIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && previousDisplay[id] !== undefined) {
+      el.style.display = previousDisplay[id];
+    }
+  });
+}
+
+function renderSimChart() {
+  const p = state.btcPrice || 65000;
+  const sortedP = [...state.purchases].sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (sortedP.length < 2) return;
+  const labels = sortedP.map(x => x.date);
+  let fb = parseFloat(state.portfolio.btc) || 0, db = parseFloat(state.portfolio.btc) || 0;
+  const fixedV = [], dynV = [];
+  sortedP.forEach(pur => {
+    fb += state.settings.base / parseFloat(pur.price);
+    db += (parseFloat(pur.usd) || state.settings.base) / parseFloat(pur.price);
+    fixedV.push(+(fb * p).toFixed(2));
+    dynV.push(+(db * p).toFixed(2));
+  });
+  makeChart('sim-chart', {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { ...lineDS('Dynamic DCA стойност ($)', dynV, '#22c55e', { fill: true }) },
+        { ...lineDS('Fixed DCA $' + state.settings.base + ' стойност ($)', fixedV, '#6b7280', { dash: [6,4] }) }
+      ]
+    },
+    options: {
+      ...baseOptions('USD', fmtUSD),
+      plugins: {
+        legend: { labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 12 } },
+        tooltip: {
+          backgroundColor: '#16161f', borderColor: '#2d2d3d', borderWidth: 1,
+          titleColor: '#e2e8f0', bodyColor: '#9ca3af', padding: 10,
+          callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtUSD(ctx.parsed.y) }
+        }
+      }
+    }
+  });
+}
+
+// ============================================================
+// PURCHASE MODAL
+// ============================================================
+function openAddPurchase() {
+  document.getElementById('modal-purchase-title').textContent = 'Нова покупка';
+  document.getElementById('edit-purchase-id').value = '';
+  document.getElementById('p-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('p-price').value = state.btcPrice ? Math.round(state.btcPrice) : '';
+  document.getElementById('p-btc').value = '';
+  document.getElementById('p-usd').value = '';
+  document.getElementById('p-rec').value = calcRecommendation().amount.toFixed(2);
+  document.getElementById('p-note').value = '';
+  document.getElementById('modal-purchase').style.display = 'flex';
+}
+
+function editPurchase(idx) {
+  const p = state.purchases[idx];
+  if (!p) return;
+  document.getElementById('modal-purchase-title').textContent = 'Редактиране на покупка';
+  document.getElementById('edit-purchase-id').value = idx;
+  document.getElementById('p-date').value = p.date;
+  document.getElementById('p-price').value = p.price;
+  document.getElementById('p-btc').value = p.btc;
+  document.getElementById('p-usd').value = p.usd;
+  document.getElementById('p-rec').value = p.rec || '';
+  document.getElementById('p-note').value = p.note || '';
+  document.getElementById('modal-purchase').style.display = 'flex';
+}
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function autoCalcPurchase(changed) {
+  const price = parseFloat(document.getElementById('p-price').value);
+  const btc = parseFloat(document.getElementById('p-btc').value);
+  const usd = parseFloat(document.getElementById('p-usd').value);
+  if (!price) return;
+  if (changed === 'btc' && btc) document.getElementById('p-usd').value = (btc * price).toFixed(2);
+  if (changed === 'usd' && usd) document.getElementById('p-btc').value = (usd / price).toFixed(8);
+  if (!changed && price && !btc && !usd) {
+    const recAmount = calcRecommendation().amount;
+    document.getElementById('p-usd').value = recAmount.toFixed(2);
+    document.getElementById('p-btc').value = (recAmount / price).toFixed(8);
+  }
+}
+
+function savePurchase() {
+  const date = document.getElementById('p-date').value;
+  const price = parseFloat(document.getElementById('p-price').value);
+  let btc = parseFloat(document.getElementById('p-btc').value);
+  let usd = parseFloat(document.getElementById('p-usd').value);
+  const rec = document.getElementById('p-rec').value;
+  const note = document.getElementById('p-note').value;
+
+  if (!date || !price || price <= 0 || !isFinite(price)) { alert('Въведете валидна положителна цена на BTC!'); return; }
+  if (!btc && !usd) { alert('Въведете BTC или USD!'); return; }
+  if (!btc && usd) btc = usd / price;
+  if (!usd && btc) usd = btc * price;
+  if (!btc || btc <= 0 || !isFinite(btc)) { alert('Невалидно количество BTC!'); return; }
+  if (!usd || usd <= 0 || !isFinite(usd)) { alert('Невалидна сума USD!'); return; }
+
+  const purchase = { date, price, btc: +btc.toFixed(8), usd: +usd.toFixed(2), rec: rec ? +parseFloat(rec).toFixed(2) : null, note };
+
+  const editId = document.getElementById('edit-purchase-id').value;
+  if (editId !== '') {
+    state.purchases[parseInt(editId)] = purchase;
+  } else {
+    state.purchases.push(purchase);
+  }
+  saveAll(); refreshAll();
+  closeModal('modal-purchase');
+}
+
+function deletePurchase(idx) {
+  if (!confirm('Изтриване на тази покупка?')) return;
+  state.purchases.splice(idx, 1);
+  saveAll(); refreshAll();
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function saveSettings() {
+  state.settings.base = parseFloat(document.getElementById('set-base').value) || 36;
+  state.settings.period = parseInt(document.getElementById('set-period').value) || 5;
+  state.settings.anchor = parseFloat(document.getElementById('set-anchor').value) || 62000;
+  state.settings.maxBuy = parseFloat(document.getElementById('set-max').value) || 60;
+  const bufferEl = document.getElementById('set-buffer');
+  if (bufferEl) state.settings.bufferPct = parseFloat(bufferEl.value) ?? 5;
+  saveAll(); refreshAll();
+}
+
+function savePortfolio() {
+  const btcEl = document.getElementById('init-btc');
+  const usdEl = document.getElementById('init-usd');
+  const avgEl = document.getElementById('init-avg');
+  if (!btcEl || !usdEl || !avgEl) return;
+
+  const btc = parseFloat(btcEl.value) || 0;
+  const usd = parseFloat(usdEl.value) || 0;
+
+  // Always auto-calculate avg from btc+usd, unless user typed it manually
+  let avg = 0;
+  if (btc > 0 && usd > 0) {
+    avg = usd / btc;
+    avgEl.value = avg.toFixed(2);
+  } else if (parseFloat(avgEl.value) > 0) {
+    avg = parseFloat(avgEl.value);
+  }
+
+  state.portfolio = { btc, usd, avg };
+  saveAll();
+  refreshAll();
+}
+
+function updateWeights(changed) {
+  const ids = ['price', 'fg', 'rsi', 'ma'];
+  const values = {};
+  ids.forEach(id => values[id] = parseInt(document.getElementById(`w-${id}`).value) || 0);
+  const total = Object.values(values).reduce((s, v) => s + v, 0);
+  ids.forEach(id => {
+    document.getElementById(`w-${id}-val`).textContent = values[id] + '%';
+    state.weights[id] = values[id];
+  });
+  const totalEl = document.getElementById('weights-total');
+  const box = document.getElementById('weights-total-box');
+  totalEl.textContent = total + '%';
+  if (total === 100) { totalEl.className = 'green'; box.style.border = ''; }
+  else { totalEl.className = 'red'; box.style.border = '1px solid #ef444444'; }
+  saveAll(); refreshAll();
+}
+
+function renderMultiplierForm() {
+  const form = document.getElementById('mult-form');
+  if (!form) return;
+  form.innerHTML = state.riskMultipliers.map((m, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center;">
+      <div style="font-size:0.8rem;color:#6b7280;">Risk ${m.min}-${m.max}</div>
+      <input type="number" step="0.01" min="1" max="3" value="${m.mult}" style="height:34px;" oninput="updateMultiplier(${i}, this.value)"/>
+      <div style="font-size:0.75rem;color:#F7931A;">${m.mult}x</div>
+    </div>
+  `).join('');
+
+  const rangesDisplay = document.getElementById('price-ranges-display');
+  if (rangesDisplay) {
+    rangesDisplay.innerHTML = state.priceRanges.map(r => `
+      <div style="display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:6px 8px;background:#0f0f1a;border-radius:6px;">
+        <div style="font-size:0.8rem;color:#6b7280;">$${r.min/1000}K - $${r.max/1000}K</div>
+        <div class="tag tag-orange">${r.mult}x</div>
+      </div>
+    `).join('');
+  }
+}
+
+function updateMultiplier(idx, val) {
+  state.riskMultipliers[idx].mult = parseFloat(val) || 1;
+  saveAll(); refreshAll();
+}
+
+function loadSettingsUI() {
+  const safeSet = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const safeText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+  safeSet('set-base', state.settings.base);
+  safeSet('set-period', state.settings.period);
+  safeSet('set-anchor', state.settings.anchor);
+  safeSet('set-max', state.settings.maxBuy);
+  safeSet('set-buffer', state.settings.bufferPct ?? 5);
+
+  safeSet('w-price', state.weights.price);
+  safeSet('w-fg', state.weights.fg);
+  safeSet('w-rsi', state.weights.rsi);
+  safeSet('w-ma', state.weights.ma);
+  safeText('w-price-val', state.weights.price + '%');
+  safeText('w-fg-val', state.weights.fg + '%');
+  safeText('w-rsi-val', state.weights.rsi + '%');
+  safeText('w-ma-val', state.weights.ma + '%');
+
+  safeSet('init-btc', state.portfolio.btc > 0 ? state.portfolio.btc : '');
+  safeSet('init-usd', state.portfolio.usd > 0 ? state.portfolio.usd : '');
+  // Always show computed avg
+  const computedAvg = state.portfolio.btc > 0 && state.portfolio.usd > 0
+    ? (state.portfolio.usd / state.portfolio.btc).toFixed(2)
+    : (state.portfolio.avg > 0 ? state.portfolio.avg.toFixed(2) : '');
+  safeSet('init-avg', computedAvg);
+
+  renderMultiplierForm();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showPage(page) {
+  // Close charts submenu if open
+  const sub = document.getElementById('charts-submenu');
+  if (sub) sub.style.display = 'none';
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+
+  const pageEl = document.getElementById(`page-${page}`);
+  if (pageEl) pageEl.classList.add('active');
+
+  // Mark correct nav link active
+  const navBtn = document.getElementById('charts-nav-btn');
+  if (page === 'charts') {
+    if (navBtn) navBtn.classList.add('active');
+  } else {
+    const link = document.querySelector(`.nav-link[onclick="showPage('${page}')"]`);
+    if (link) link.classList.add('active');
+  }
+
+  if (page === 'charts') { setTimeout(renderAllCharts, 100); }
+  if (page === 'simulations') { setTimeout(renderSimChart, 100); updateSimulations(); }
+  if (page === 'settings') { loadSettingsUI(); }
+}
+
+function toggleChartsMenu(e) {
+  e.stopPropagation();
+  const sub = document.getElementById('charts-submenu');
+  if (!sub) return;
+  const isOpen = sub.style.display !== 'none';
+  sub.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const pageEl = document.getElementById('page-charts');
+    if (pageEl) pageEl.classList.add('active');
+    document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+    const navBtn = document.getElementById('charts-nav-btn');
+    if (navBtn) navBtn.classList.add('active');
+    setTimeout(renderAllCharts, 100);
+  }
+}
+
+// Close submenu on outside click
+document.addEventListener('click', () => {
+  const sub = document.getElementById('charts-submenu');
+  if (sub) sub.style.display = 'none';
+});
+
+function showChartGroup(group) {
+  // Close submenu
+  const sub = document.getElementById('charts-submenu');
+  if (sub) sub.style.display = 'none';
+
+  // Activate charts page
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pg = document.getElementById('page-charts');
+  if (pg) pg.classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+  const navBtn = document.getElementById('charts-nav-btn');
+  if (navBtn) navBtn.classList.add('active');
+
+  // Sync tab buttons inside the chart page
+  document.querySelectorAll('.tab-btn[id^="cg-btn-"]').forEach(b => b.classList.remove('active'));
+  const grpBtn = document.getElementById('cg-btn-' + group);
+  if (grpBtn) grpBtn.classList.add('active');
+
+  // Group descriptions
+  const descs = {
+    accumulation: 'Натрупване на BTC — брой монети, темпо по месец, нови vs начални',
+    performance:  'Представяне на портфолиото — стойност, П/З в $ и %, ROI',
+    strategy:     'DCA стратегия — Dynamic vs Fixed, препоръки, вноски по покупка',
+    market:       'Пазарни условия — Risk Score история, цени спрямо котвата, ефективност',
+    all:          'Всички 15 графики'
+  };
+  const descEl = document.getElementById('chart-group-desc');
+  if (descEl) descEl.textContent = descs[group] || '';
+
+  // Show/hide cg- groups
+  ['accumulation','performance','strategy','market'].forEach(g => {
+    const el = document.getElementById('cg-' + g);
+    if (!el) return;
+    if (group === 'all' || group === g) {
+      el.style.display = 'grid';
+    } else {
+      el.style.display = 'none';
+    }
+  });
+
+  setTimeout(renderAllCharts, 100);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  loadAll();
+  loadSettingsUI();
+  refreshAll();
+
+  // Fetch market data
+  await fetchPrice();
+  fetchFearGreed();
+  fetchRSI('4h');
+  fetchRSI('1d');
+  fetchRSI('1w');
+  fetchMA200();
+  fetchATH();
+
+  // Auto-refresh
+  setInterval(fetchPrice, 60000);
+  setInterval(() => { fetchFearGreed(); fetchRSI(state.rsiFrame); }, 300000);
+  setInterval(fetchATH, 600000);
+  setInterval(renderCharts, 120000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Portal Bulgaria</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="logo">Bitcoin Portal Bulgaria</div>
+        <ul>
+            <li><a href="#" onclick="showSection('home')">Начало</a></li>
+            <li><a href="#" onclick="showSection('education')">Обучение</a></li>
+            <li><a href="#" onclick="showSection('dca')">DCA калкулатор</a></li>
+            <li><a href="#" onclick="showSection('blog')">Блог</a></li>
+        </ul>
+    </nav>
+
+    <main id="content">
+        <section id="home">
+            <h1>Всичко за Биткойн на едно място</h1>
+            <div id="price-widget" class="card">
+                <h3>Цена на Биткойн (на живо)</h3>
+                <p id="price-data">Зареждане на цената...</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
